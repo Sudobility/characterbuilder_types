@@ -71,6 +71,8 @@ export const generateRequestSchema = z
     path: ['spec'],
   });
 export type GenerateRequest = z.infer<typeof generateRequestSchema>;
+/** The request shape a CLIENT sends (params optional; the server defaults them). */
+export type GenerateRequestInput = z.input<typeof generateRequestSchema>;
 
 /** Compose-only request: same inputs, but returns the prompt and charges nothing. */
 export const composeRequestSchema = z
@@ -84,6 +86,7 @@ export const composeRequestSchema = z
     path: ['spec'],
   });
 export type ComposeRequest = z.infer<typeof composeRequestSchema>;
+export type ComposeRequestInput = z.input<typeof composeRequestSchema>;
 
 export interface ComposeResponse {
   /** The natural-language prompt the spec + params compose to. */
