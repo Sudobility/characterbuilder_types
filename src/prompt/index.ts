@@ -32,15 +32,14 @@ const ANCESTRY_ADJ: Phrase<string> = {
   mixed: 'mixed-ancestry',
 };
 
-const AGE_BAND_PHRASE: Phrase<string> = {
-  child: 'child',
-  teen: 'teenager',
-  twenties: 'person in their twenties',
-  thirties: 'person in their thirties',
-  forties: 'person in their forties',
-  fifties: 'person in their fifties',
-  sixties: 'person in their sixties',
-  'seventies-plus': 'elderly person',
+/** Decade bands render as "<noun> in <poss> <decade>"; child/teen replace the noun. */
+const AGE_DECADE: Phrase<string> = {
+  twenties: 'twenties',
+  thirties: 'thirties',
+  forties: 'forties',
+  fifties: 'fifties',
+  sixties: 'sixties',
+  'seventies-plus': 'seventies or older',
 };
 
 const SEX_NOUN: Phrase<string> = {
@@ -459,20 +458,39 @@ const FEATURE_ORDER: (keyof FaceSpec)[] = [
 
 const SUBJECT_DEFAULTS = { shot: 'headshot', expression: 'neutral' } as const;
 
+/** "a" vs "an" from the following word's sound (handles the Eu-/uni- exceptions). */
+function indefinite(word: string): string {
+  if (/^(eu|uni|use|one)/i.test(word)) return 'a';
+  return /^[aeiou]/i.test(word) ? 'an' : 'a';
+}
+
 function subjectClause(
   spec: FaceSpec,
   shot: Shot,
   expression: Expression
 ): string {
-  const age = spec.ageYears
-    ? `${spec.ageYears}-year-old`
-    : spec.ageBand
-      ? AGE_BAND_PHRASE[spec.ageBand]
-      : '';
   const ancestry = spec.ancestry ? ANCESTRY_ADJ[spec.ancestry] : '';
   const noun = spec.sex ? SEX_NOUN[spec.sex] : 'person';
-  const who = [age, ancestry, noun].filter(Boolean).join(' ');
-  return `A photorealistic ${SHOT_PHRASE[shot]} of a ${who}, ${EXPRESSION_PHRASE[expression]}.`;
+  let who: string;
+  if (spec.ageYears) {
+    who = [`${spec.ageYears}-year-old`, ancestry, noun]
+      .filter(Boolean)
+      .join(' ');
+  } else if (spec.ageBand === 'child') {
+    who = [ancestry, 'child'].filter(Boolean).join(' ');
+  } else if (spec.ageBand === 'teen') {
+    who = [ancestry, 'teenager'].filter(Boolean).join(' ');
+  } else if (spec.ageBand) {
+    const poss =
+      spec.sex === 'female' ? 'her' : spec.sex === 'male' ? 'his' : 'their';
+    who =
+      [ancestry, noun].filter(Boolean).join(' ') +
+      ` in ${poss} ${AGE_DECADE[spec.ageBand]}`;
+  } else {
+    who = [ancestry, noun].filter(Boolean).join(' ');
+  }
+  const art = indefinite(who);
+  return `A photorealistic ${SHOT_PHRASE[shot]} of ${art} ${who}, ${EXPRESSION_PHRASE[expression]}.`;
 }
 
 /**
