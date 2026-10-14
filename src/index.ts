@@ -10,5 +10,6 @@ export * from './ids/index.js';
 export * from './face/index.js';
 export * from './specs/index.js';
 export * from './generation/index.js';
+export * from './prompt/index.js';
 export * from './credits/index.js';
 export * from './me/index.js';
