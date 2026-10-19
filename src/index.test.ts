@@ -57,19 +57,26 @@ describe('characters', () => {
 });
 
 describe('generation', () => {
-  it('requires exactly one of characterId or spec', () => {
-    expect(() => generateRequestSchema.parse({})).toThrow();
+  it('allows at most one of characterId or spec (neither is fine — fully cast)', () => {
+    // Both together is the only disallowed combo.
     expect(() =>
       generateRequestSchema.parse({ characterId: 'chr_x', spec: {} })
     ).toThrow();
+    // An empty request is valid: every trait is cast by the API.
+    expect(() => generateRequestSchema.parse({})).not.toThrow();
     expect(() =>
       generateRequestSchema.parse({ characterId: 'chr_x' })
     ).not.toThrow();
     expect(() => generateRequestSchema.parse({ spec: {} })).not.toThrow();
+    // Demographics may accompany a (partial) spec or stand alone.
+    expect(() =>
+      generateRequestSchema.parse({ demographics: { ancestry: 'east-asian' } })
+    ).not.toThrow();
   });
 
-  it('clamps count to 1..4', () => {
-    expect(() => generationParamsSchema.parse({ count: 5 })).toThrow();
+  it('clamps count to 1..10', () => {
+    expect(() => generationParamsSchema.parse({ count: 11 })).toThrow();
+    expect(generationParamsSchema.parse({ count: 8 }).count).toBe(8);
     expect(generationParamsSchema.parse({}).count).toBe(1);
   });
 

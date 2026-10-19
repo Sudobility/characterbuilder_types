@@ -40,4 +40,63 @@ describe('composePrompt', () => {
     const p = composePrompt({}, { styleNote: 'moody rim lighting' });
     expect(p).toContain('moody rim lighting');
   });
+
+  it('renders the new eye sub-dials', () => {
+    const p = composePrompt({
+      lidCrease: 'triple',
+      orbitalDepth: 'deep',
+      lashLength: 'long',
+      lashDensity: 'dense',
+    });
+    expect(p).toContain('triple upper-lid crease');
+    expect(p).toContain('deep-set eyes recessed under the brow');
+    expect(p).toContain('long lashes');
+    expect(p).toContain('thick, dense lashes');
+  });
+
+  it('omits unremarkable neutral values', () => {
+    const p = composePrompt({ skullHeight: 'medium', jowls: 'none' });
+    // "medium"/"none" neutrals map to empty phrases and must not appear.
+    expect(p).not.toContain('vaulted');
+    expect(p).not.toContain('jowls');
+  });
+
+  it('renders facial hair as its own sentence and never shows clean-shaven', () => {
+    expect(composePrompt({ facialHair: 'full-beard' })).toContain(
+      'Facial hair: a full beard.'
+    );
+    expect(composePrompt({ facialHair: 'clean-shaven' })).not.toContain(
+      'clean-shaven'
+    );
+  });
+
+  it('folds facial-hair density/color into the sentence', () => {
+    const p = composePrompt({
+      facialHair: 'full-beard',
+      facialHairDensity: 'full',
+      facialHairColor: 'dark-brown',
+    });
+    expect(p).toContain(
+      'Facial hair: a full beard, dense facial-hair growth, dark brown in color.'
+    );
+  });
+
+  it('suppresses facial-hair density/color when clean-shaven', () => {
+    const p = composePrompt({
+      facialHair: 'clean-shaven',
+      facialHairDensity: 'patchy',
+      facialHairColor: 'grey',
+    });
+    expect(p).not.toContain('facial-hair growth');
+    expect(p).not.toContain('in color');
+  });
+
+  it('lists wrinkle locations', () => {
+    const p = composePrompt({
+      wrinkleLevel: 'deep',
+      wrinkleAreas: ['forehead', 'crows-feet'],
+    });
+    expect(p).toContain('deep wrinkles');
+    expect(p).toContain('lines around the forehead, crows feet');
+  });
 });

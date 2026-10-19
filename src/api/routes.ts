@@ -19,6 +19,9 @@ export const ROUTES = {
   /** Compose-only: return the prompt a spec would produce, without generating. */
   composePrompt: '/compose',
 
+  /** Demographics -> per-trait probability maps (the casting odds). */
+  distributions: '/distributions',
+
   /** Spend credits and generate images from a spec (saved or inline). */
   generate: '/generate',
   generations: '/generations',

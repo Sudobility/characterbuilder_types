@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { faceSpecSchema } from '../face/index.js';
+import { faceSpecSchema, type FaceSpec } from '../face/index.js';
+import { demographicsSchema } from '../demographics/index.js';
 
 /**
  * Generation: compose a prompt from a FaceSpec and render N images through
@@ -35,7 +36,7 @@ export const imageSizeSchema = z.enum(IMAGE_SIZES);
 export type ImageSize = z.infer<typeof imageSizeSchema>;
 
 export const generationParamsSchema = z.object({
-  count: z.coerce.number().int().min(1).max(4).default(1),
+  count: z.coerce.number().int().min(1).max(10).default(1),
   size: imageSizeSchema.default('portrait'),
   shot: shotSchema.default('headshot'),
   expression: expressionSchema.default('neutral'),
@@ -55,7 +56,10 @@ export const referenceImageSchema = z
 export const generateRequestSchema = z
   .object({
     characterId: z.string().optional(),
+    /** Partial FaceSpec: any trait left unset is CAST by the API before render. */
     spec: faceSpecSchema.optional(),
+    /** Demographics that steer the casting of unset traits (race/age/health…). */
+    demographics: demographicsSchema.optional(),
     params: generationParamsSchema.default({
       count: 1,
       size: 'portrait',
@@ -66,8 +70,8 @@ export const generateRequestSchema = z
     /** Client-supplied key so a retried request never double-charges. */
     idempotencyKey: z.string().trim().min(8).max(200).optional(),
   })
-  .refine((v) => Boolean(v.characterId) !== Boolean(v.spec), {
-    message: 'Provide exactly one of characterId or spec',
+  .refine((v) => !(v.characterId && v.spec), {
+    message: 'Provide at most one of characterId or spec',
     path: ['spec'],
   });
 export type GenerateRequest = z.infer<typeof generateRequestSchema>;
@@ -108,6 +112,14 @@ export interface GeneratedImage {
   url: string;
   width: number | null;
   height: number | null;
+  /**
+   * The fully-cast FaceSpec that produced THIS image. Generation is ephemeral,
+   * so this is how a caller can inspect — or save as a character — a face they
+   * liked. Absent on older rows generated before per-image specs were recorded.
+   */
+  spec?: FaceSpec;
+  /** The prose prompt this specific image was rendered from. */
+  prompt?: string;
 }
 
 /** A completed (or failed) generation record, persisted for history. */
