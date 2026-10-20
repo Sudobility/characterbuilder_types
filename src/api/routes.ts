@@ -24,6 +24,8 @@ export const ROUTES = {
 
   /** Spend credits and generate images from a spec (saved or inline). */
   generate: '/generate',
+  /** Staged sheet generation (head sheet / body sheet / clothed sheet). */
+  generateSheet: '/generate/sheet',
   generations: '/generations',
   generation: (id: string) => `/generations/${id}`,
 

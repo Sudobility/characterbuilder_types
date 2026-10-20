@@ -53,27 +53,28 @@ export const referenceImageSchema = z
   .startsWith('data:image/')
   .max(15_000_000);
 
-export const generateRequestSchema = z
-  .object({
-    characterId: z.string().optional(),
-    /** Partial FaceSpec: any trait left unset is CAST by the API before render. */
-    spec: faceSpecSchema.optional(),
-    /** Demographics that steer the casting of unset traits (race/age/health…). */
-    demographics: demographicsSchema.optional(),
-    params: generationParamsSchema.default({
-      count: 1,
-      size: 'portrait',
-      shot: 'headshot',
-      expression: 'neutral',
-    }),
-    referenceImage: referenceImageSchema.optional(),
-    /** Client-supplied key so a retried request never double-charges. */
-    idempotencyKey: z.string().trim().min(8).max(200).optional(),
-  })
-  .refine((v) => !(v.characterId && v.spec), {
-    message: 'Provide at most one of characterId or spec',
-    path: ['spec'],
-  });
+export const generateRequestSchema = z.object({
+  /**
+   * The owning character. With no `spec`, its saved spec is rendered. WITH a
+   * `spec` (the editor's live draft), the draft is rendered but the generation
+   * is still ASSOCIATED with this character — so its images show up in the
+   * character's gallery and link back to it.
+   */
+  characterId: z.string().optional(),
+  /** Partial FaceSpec: any trait left unset is CAST by the API before render. */
+  spec: faceSpecSchema.optional(),
+  /** Demographics that steer the casting of unset traits (race/age/health…). */
+  demographics: demographicsSchema.optional(),
+  params: generationParamsSchema.default({
+    count: 1,
+    size: 'portrait',
+    shot: 'headshot',
+    expression: 'neutral',
+  }),
+  referenceImage: referenceImageSchema.optional(),
+  /** Client-supplied key so a retried request never double-charges. */
+  idempotencyKey: z.string().trim().min(8).max(200).optional(),
+});
 export type GenerateRequest = z.infer<typeof generateRequestSchema>;
 /** The request shape a CLIENT sends (params optional; the server defaults them). */
 export type GenerateRequestInput = z.input<typeof generateRequestSchema>;
@@ -120,6 +121,11 @@ export interface GeneratedImage {
   spec?: FaceSpec;
   /** The prose prompt this specific image was rendered from. */
   prompt?: string;
+  /**
+   * For a sheet generation, this image's view/direction label (e.g. `front`,
+   * `back-left`). Absent on single-image (`face`) generations.
+   */
+  role?: string;
 }
 
 /** A completed (or failed) generation record, persisted for history. */
@@ -134,4 +140,8 @@ export interface Generation {
   /** Set only when status is 'failed'. */
   error: string | null;
   createdAt: string;
+  /** What kind of generation this is: the single-image `face` flow, or a sheet stage. */
+  kind?: string;
+  /** For a sheet stage, the prior image id it was conditioned on. */
+  sourceImageId?: string | null;
 }

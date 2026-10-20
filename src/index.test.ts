@@ -57,11 +57,12 @@ describe('characters', () => {
 });
 
 describe('generation', () => {
-  it('allows at most one of characterId or spec (neither is fine — fully cast)', () => {
-    // Both together is the only disallowed combo.
+  it('accepts characterId and/or spec in any combination', () => {
+    // characterId + spec together is valid: the inline (draft) spec is rendered
+    // while the generation is ASSOCIATED with the character (its gallery).
     expect(() =>
       generateRequestSchema.parse({ characterId: 'chr_x', spec: {} })
-    ).toThrow();
+    ).not.toThrow();
     // An empty request is valid: every trait is cast by the API.
     expect(() => generateRequestSchema.parse({})).not.toThrow();
     expect(() =>
