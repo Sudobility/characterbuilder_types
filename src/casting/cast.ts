@@ -14,13 +14,52 @@ import {
 import type { Demographics } from '../demographics/index.js';
 import type { FaceDistributions } from '../distribution/index.js';
 import { buildDistributions } from './distributions.js';
-import { chance, hashSeed, mulberry32, weightedPick, type Rng } from './rng.js';
+import {
+  NEUTRAL_DEFAULTS,
+  attractivenessDistributions,
+} from './attractiveness.js';
+import {
+  resolveAncestry,
+  sampleAncestryFraction,
+  blendByFraction,
+  type AncestryRef,
+} from './ancestry.js';
+import {
+  chance,
+  hashSeed,
+  mulberry32,
+  sharpen,
+  weightedPick,
+  type Rng,
+} from './rng.js';
+
+/**
+ * How hard to peak an "ideal" (Look-selected) trait toward its best attractive
+ * value. 3 crushes a ≤10% unattractive tail to <1% while leaving the top one or
+ * two near-equal values in play — "mostly ideal, slight variety".
+ */
+const IDEAL_SHARPEN = 3;
 
 export interface CastOptions {
   /** Deterministic seed; omit for fresh randomness each call. */
   seed?: number;
   /** Pre-built distributions (e.g. with LLM overrides merged); built if absent. */
   distributions?: FaceDistributions;
+  /**
+   * "Look" level, 0..1: the fraction of unset traits pulled toward the IDEAL
+   * (most attractive) value for the demographic instead of being sampled. 0
+   * (default) = full variety; 1 = every unset trait ideal; 0.9 = ~90% ideal, the
+   * rest sampled. The ideal value comes from `attractiveness` when present for a
+   * trait, else falls back to the population mode (`distributions`).
+   */
+  conformity?: number;
+  /**
+   * Per-trait odds among GOOD-LOOKING people of the demographic (from the
+   * `character-attractive` endpoint). The "Look" bias uses each trait's most
+   * likely value here as its ideal. Absent → the bias falls back to the
+   * population mode, i.e. "most typical" (the old behavior).
+   */
+  attractiveness?: FaceDistributions;
 }
 
 export interface CastResult {
@@ -39,8 +78,13 @@ const MALE_PATTERN_BALDING = new Set([
 ]);
 const GREY_HAIR_COLORS = new Set(['grey', 'white', 'salt-and-pepper']);
 
-/** Merge the demographics object with any demographic fields set in the spec. */
-function resolveDemographics(
+/**
+ * Merge the demographics object with any demographic fields set in the spec (the
+ * spec wins). Exported so callers that pre-build distributions/attractiveness
+ * (e.g. the job runner) resolve the SAME effective demographics the caster uses —
+ * otherwise sex/ancestry/age set only in the spec would leave those tables neutral.
+ */
+export function resolveDemographics(
   partial: FaceSpec,
   demo: Demographics
 ): Demographics {
@@ -52,20 +96,30 @@ function resolveDemographics(
     ageYears: partial.ageYears ?? demo.ageYears,
     health: demo.health,
     build: partial.build ?? demo.build,
+    // Carry a mixed-ancestry spec through so the caster can resolve both parents.
+    ...(demo.mix ? { mix: demo.mix } : {}),
   };
 }
 
+/**
+ * `look` (conformity, 0..1) suppresses UNFLATTERING marks — at Look 10 a good-looking
+ * face is essentially clear, at Look 0 the natural rates apply. A single beauty mark
+ * is left alone (it reads as attractive, not a blemish).
+ */
 function castSkinMarks(
   spec: Record<string, unknown>,
   isOld: boolean,
-  rng: Rng
+  rng: Rng,
+  look = 0
 ): SkinMark[] {
   const marks: SkinMark[] = [];
-  const maybe = (m: SkinMark, p: number) => {
-    if (marks.length < 4 && chance(p, rng)) marks.push(m);
+  const clear = 1 - Math.min(Math.max(look, 0), 1); // 1 at Look 0 → ~0 at Look 10
+  const maybe = (m: SkinMark, p: number, flattering = false) => {
+    const prob = flattering ? p : p * clear;
+    if (marks.length < 4 && chance(prob, rng)) marks.push(m);
   };
-  maybe('moles', 0.35);
-  maybe('beauty-mark', 0.12);
+  maybe('moles', 0.35 * (0.3 + 0.7 * clear)); // moles partly kept; soft reduction
+  maybe('beauty-mark', 0.12, true);
   maybe('birthmark', 0.06);
   maybe('scars', 0.1);
   maybe('acne-scarring', 0.1);
@@ -114,7 +168,6 @@ export function castFaceSpec(
   opts: CastOptions = {}
 ): CastResult {
   const demo = resolveDemographics(partial, demographics);
-  const distributions = opts.distributions ?? buildDistributions(demo);
   const seed =
     opts.seed ??
     (hashSeed(JSON.stringify(demo)) ^ ((Math.random() * 0xffffffff) | 0)) >>> 0;
@@ -126,23 +179,109 @@ export function castFaceSpec(
   if (demo.sex != null) spec.sex ??= demo.sex;
   if (demo.ageBand != null) spec.ageBand ??= demo.ageBand;
   if (demo.ageYears != null) spec.ageYears ??= demo.ageYears;
-  if (demo.ancestry != null) spec.ancestry ??= demo.ancestry;
   if (demo.build != null) spec.build ??= demo.build;
-  // A named sub-population (e.g. "Korean") steers the prose: thread it through
-  // ancestryNote so both the preview and the remote composer honor it. (The
-  // static distribution tables only know the broad ancestry; finer weighting is
-  // the deferred LLM-refine layer's job.)
-  if (demo.subPopulation && spec.ancestryNote == null) {
-    spec.ancestryNote = demo.subPopulation;
-  }
 
-  // Sample every unset enum feature.
-  for (const key of Object.keys(FACE_FEATURE_VALUES)) {
-    if (spec[key] == null) {
-      const dist = distributions[key as keyof FaceDistributions];
-      spec[key] = dist
-        ? weightedPick(dist, rng)
-        : FACE_FEATURE_VALUES[key as keyof typeof FACE_FEATURE_VALUES][0];
+  // Resolve the per-trait distributions + attractiveness. If the caller prebuilt
+  // `distributions` (tests / a preview that wants a fixed demographic), trust those.
+  // Otherwise resolve the ancestry TAXONOMY with this cast's seed: a STEM (e.g.
+  // "Asian", "European") descends at random to a concrete sub-population, a leaf
+  // ("Northern Chinese") is used directly, and MIXED inherits each trait from one
+  // randomly-chosen parent.
+  let distributions: FaceDistributions;
+  let attractiveness = opts.attractiveness;
+  if (opts.distributions) {
+    distributions = opts.distributions;
+  } else {
+    const res = resolveAncestry(
+      demo as Demographics & { mix?: AncestryRef[] },
+      rng
+    );
+    if (res) {
+      // Build each heritage component's population + attractiveness distributions,
+      // then blend them with ONE per-person ancestry fraction (shared across both
+      // tables, so the whole face leans the same way).
+      const parts = res.components.map((c) => {
+        const leafDemo = {
+          ...demo,
+          ancestry: c.enumAncestry as Demographics['ancestry'],
+        };
+        return {
+          weight: c.weight,
+          pop: buildDistributions(leafDemo, c.population),
+          attr: attractivenessDistributions(leafDemo, c.attractiveness),
+        };
+      });
+      if (parts.length === 1) {
+        distributions = parts[0]!.pop;
+        attractiveness = parts[0]!.attr;
+      } else {
+        const alpha = sampleAncestryFraction(
+          parts.map((p) => p.weight),
+          rng
+        );
+        distributions = blendByFraction(
+          parts.map((p) => p.pop),
+          alpha,
+          rng
+        );
+        attractiveness = blendByFraction(
+          parts.map((p) => p.attr),
+          alpha,
+          rng
+        );
+      }
+      spec.ancestry ??= res.enumAncestry as FaceSpec['ancestry'];
+      if (spec.ancestryNote == null) spec.ancestryNote = res.label;
+    } else {
+      distributions = buildDistributions(demo);
+    }
+  }
+  // Fallbacks for the prebuilt-distributions path (and any unresolved case): keep a
+  // named sub-population in the prose and the broad ancestry on the spec.
+  if (demo.ancestry != null) spec.ancestry ??= demo.ancestry;
+  if (demo.subPopulation && spec.ancestryNote == null)
+    spec.ancestryNote = demo.subPopulation;
+
+  // Fill every unset enum feature. `conformity` (the "Look" level / 10) is the
+  // FRACTION of the ATTRACTIVENESS-relevant unset traits that are drawn from the
+  // good-looking distribution instead of the general population — so Look only ever
+  // moves traits our attractiveness model has an opinion on (symmetry, skin, jaw,
+  // brows, lips…); pigment & ancestry-marking traits always come from the
+  // population, at any Look. Both sources are SAMPLED (not forced to a single mode),
+  // so Look 10 yields attractive-but-varied faces, Look 0 full natural variety.
+  const conformity = Math.min(Math.max(opts.conformity ?? 0, 0), 1);
+  const hasDist = (w?: Record<string, number>) =>
+    !!w && Object.keys(w).length > 0;
+  const unset = Object.keys(FACE_FEATURE_VALUES).filter((k) => spec[k] == null);
+  // The Look budget applies only to traits the attractiveness model covers — the
+  // denominator of the 1..10 scale.
+  const lookable = unset.filter((k) =>
+    hasDist(attractiveness?.[k as keyof FaceDistributions])
+  );
+  // Pick exactly round(conformity · N) of them to be drawn from the attractive
+  // distribution; choose which via a seeded shuffle (deterministic under a seed).
+  const idealCount = Math.round(conformity * lookable.length);
+  const order = [...lookable];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [order[i], order[j]] = [order[j]!, order[i]!];
+  }
+  const ideal = new Set(order.slice(0, idealCount));
+  for (const key of unset) {
+    const attr = attractiveness?.[key as keyof FaceDistributions];
+    const pop = distributions[key as keyof FaceDistributions];
+    if (ideal.has(key) && hasDist(attr)) {
+      // Attractive pick, sharpened so the best value dominates (misses rare) while
+      // keeping the near-best values possible — "mostly ideal" rather than a clone.
+      spec[key] = weightedPick(sharpen(attr!, IDEAL_SHARPEN), rng);
+    } else if (hasDist(pop)) {
+      spec[key] = weightedPick(pop!, rng); // population variety
+    } else {
+      // No distribution at all: use a neutral default so the enum's first value
+      // (often an unflattering extreme) isn't silently baked into every face.
+      spec[key] =
+        NEUTRAL_DEFAULTS[key as keyof FaceDistributions] ??
+        FACE_FEATURE_VALUES[key as keyof typeof FACE_FEATURE_VALUES][0];
     }
   }
 
@@ -158,6 +297,22 @@ export function castFaceSpec(
 
   // Facial hair only on non-female adults.
   if (spec.sex === 'female' || isMinor) spec.facialHair = 'clean-shaven';
+  // A clean-shaven face has no facial-hair density/colour to describe — drop them
+  // so the prompt never mentions (e.g.) "patchy facial hair" on a woman.
+  if (spec.facialHair === 'clean-shaven') {
+    delete spec.facialHairDensity;
+    delete spec.facialHairColor;
+  }
+
+  // Only name an asymmetric feature when the face is actually asymmetric; a "none"
+  // asymmetry with a stray asymmetryFeature made the composer invent a flaw.
+  if (spec.asymmetry == null || spec.asymmetry === 'none')
+    delete spec.asymmetryFeature;
+
+  // A female (or any minor) does not read with a prominent Adam's apple; a
+  // population draw can still land there, so clamp it like a biology rule.
+  if ((spec.sex === 'female' || isMinor) && spec.adamsApple === 'prominent')
+    spec.adamsApple = 'flat';
 
   // Monolids have no crease; a double lid implies one.
   if (spec.lidType === 'monolid') spec.lidCrease = 'none';
@@ -207,13 +362,14 @@ export function castFaceSpec(
   // Brow and facial-hair color track the scalp unless the caller set them
   // (after any hair-color change above).
   if (partial.browColor == null) spec.browColor = spec.hairColor;
-  if (partial.facialHairColor == null) spec.facialHairColor = spec.hairColor;
+  if (partial.facialHairColor == null && spec.facialHair !== 'clean-shaven')
+    spec.facialHairColor = spec.hairColor;
 
   // ── Derived multi-selects (depend on the now-final scalar values) ──────────
   if (partial.wrinkleAreas == null)
     spec.wrinkleAreas = castWrinkleAreas(spec.wrinkleLevel as string, rng);
   if (partial.skinMarks == null)
-    spec.skinMarks = castSkinMarks(spec, isOld, rng);
+    spec.skinMarks = castSkinMarks(spec, isOld, rng, conformity);
 
   return { spec: spec as FaceSpec, distributions, demographics: demo };
 }

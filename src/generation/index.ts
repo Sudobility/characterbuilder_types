@@ -44,6 +44,13 @@ export const generationParamsSchema = z.object({
   seed: z.number().int().min(0).optional(),
   /** Free-text styling appended to the composed prompt (e.g. lighting). */
   styleNote: z.string().trim().max(600).optional(),
+  /**
+   * "Look" level as a fraction, 0..1: the share of unset traits cast to the MOST
+   * COMMON ("beautiful") value for the demographic; the rest are sampled. 0 = full
+   * variety; 1 = the most typical face; 0.9 ≈ 90% typical. The UI exposes it as a
+   * 1–10 "Look" scale (plus "Any" = 0). Default 0.7 (Look 7).
+   */
+  conformity: z.coerce.number().min(0).max(1).default(0.7),
 });
 export type GenerationParams = z.infer<typeof generationParamsSchema>;
 
@@ -70,6 +77,7 @@ export const generateRequestSchema = z.object({
     size: 'portrait',
     shot: 'headshot',
     expression: 'neutral',
+    conformity: 0.7,
   }),
   referenceImage: referenceImageSchema.optional(),
   /** Client-supplied key so a retried request never double-charges. */
@@ -97,6 +105,41 @@ export interface ComposeResponse {
   /** The natural-language prompt the spec + params compose to. */
   prompt: string;
 }
+
+/**
+ * Describe-to-spec: the user writes a free-text description of a face ("a weathered
+ * fisherman in his 60s, deep-set grey eyes, broad nose…") and the API's LLM maps it
+ * onto the structured FaceSpec vocabulary. The returned spec is a partial — only the
+ * traits the description implies are set; the rest stay unset (cast at generation).
+ */
+export const describeRequestSchema = z.object({
+  /** Free-text description of the character's appearance. */
+  description: z.string().trim().min(1).max(4000),
+  /** Optional demographics to disambiguate traits the text leaves open. */
+  demographics: demographicsSchema.optional(),
+});
+export type DescribeRequest = z.infer<typeof describeRequestSchema>;
+
+export interface DescribeResponse {
+  /** The (partial) FaceSpec inferred from the description. */
+  spec: FaceSpec;
+}
+
+/**
+ * Analyze-to-spec: the user uploads a headshot and a vision LLM reads the face
+ * into the structured FaceSpec vocabulary (the inverse of generation). Like
+ * describe, the returned spec is a partial — only the traits the photo shows.
+ */
+export const analyzeRequestSchema = z.object({
+  /** The headshot to analyze, as a `data:image/...;base64,...` URL. */
+  image: referenceImageSchema,
+  /** Optional demographics to disambiguate traits the photo leaves ambiguous. */
+  demographics: demographicsSchema.optional(),
+});
+export type AnalyzeRequest = z.infer<typeof analyzeRequestSchema>;
+
+/** Same shape as describe: the (partial) FaceSpec read from the image. */
+export type AnalyzeResponse = DescribeResponse;
 
 export const GENERATION_STATUSES = [
   'pending',

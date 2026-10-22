@@ -1000,3 +1000,64 @@ export const FACE_FEATURE_VALUES = {
 
 /** The enum FaceSpec fields the caster fills (keys of {@link FACE_FEATURE_VALUES}). */
 export type FaceFeatureKey = keyof typeof FACE_FEATURE_VALUES;
+
+/**
+ * The non-enum FaceSpec fields (free text, numbers, multi-select arrays) that the
+ * {@link FACE_FEATURE_VALUES} map doesn't cover. Kept alongside it so a sanitizer
+ * knows which extra keys are legitimate.
+ */
+const FACE_FREEFORM_KEYS = [
+  'hairStyle',
+  'ageYears',
+  'ancestryNote',
+  'distinguishingMark',
+  'extraNotes',
+  'wrinkleAreas',
+  'skinMarks',
+] as const satisfies readonly (keyof FaceSpec)[];
+
+/**
+ * Coerce an untrusted object (e.g. an LLM's "describe → spec" output) into a VALID
+ * partial FaceSpec. Enum traits are kept only when their value is in the allowed
+ * vocabulary; free-text / numeric / array traits are passed through to the strict
+ * schema (which drops them if malformed). Anything else is discarded. Never throws —
+ * returns `{}` when nothing usable survives.
+ */
+export function sanitizeFaceSpec(raw: unknown): FaceSpec {
+  if (!raw || typeof raw !== 'object') return {};
+  const input = raw as Record<string, unknown>;
+  const candidate: Record<string, unknown> = {};
+
+  // Enum traits: keep only values the vocabulary allows.
+  for (const [trait, allowed] of Object.entries(FACE_FEATURE_VALUES)) {
+    const v = input[trait];
+    if (typeof v === 'string' && (allowed as readonly string[]).includes(v)) {
+      candidate[trait] = v;
+    }
+  }
+  // Free-form traits: validate each one on its own so a single malformed field
+  // (e.g. an out-of-range ageYears) never discards the otherwise-good spec.
+  for (const key of FACE_FREEFORM_KEYS) {
+    if (input[key] === undefined) continue;
+    if (faceSpecSchema.safeParse({ [key]: input[key] }).success) {
+      candidate[key] = input[key];
+    }
+  }
+
+  const parsed = faceSpecSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : {};
+}
+
+/**
+ * Apply the female → no-facial-hair rule to a PARTIAL spec, so the editor and the
+ * describe-to-spec result stay consistent with the caster (which already forces
+ * `clean-shaven` for females at generation time). When `sex` is female, facial
+ * hair is set to `clean-shaven` and its density is cleared. Returns a new object;
+ * a non-female (or unset) sex is left untouched.
+ */
+export function applyFemaleFacialHairRule(spec: FaceSpec): FaceSpec {
+  if (spec.sex !== 'female') return spec;
+  const next: FaceSpec = { ...spec, facialHair: 'clean-shaven' };
+  delete next.facialHairDensity;
+  return next;
+}

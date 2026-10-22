@@ -36,6 +36,25 @@ export const demographicsSchema = z
     ancestry: ancestrySchema.optional(),
     /** Free-text sub-population to narrow the ancestry (e.g. "Korean", "Igbo"). */
     subPopulation: z.string().trim().max(120).optional(),
+    /**
+     * Mixed ancestry: one or two parent references, each naming a broad `ancestry`
+     * and/or a `subPopulation` at any level of the taxonomy (e.g. "Asian" or
+     * "Northern Chinese"). Two entries → a half-and-half person whose traits are
+     * inherited per-feature from a randomly chosen parent; one entry behaves like a
+     * single ancestry. Supersedes the top-level `ancestry`/`subPopulation`.
+     */
+    mix: z
+      .array(
+        z
+          .object({
+            ancestry: ancestrySchema.optional(),
+            subPopulation: z.string().trim().max(120).optional(),
+          })
+          .strict()
+      )
+      .min(1)
+      .max(2)
+      .optional(),
     sex: sexSchema.optional(),
     ageBand: ageBandSchema.optional(),
     ageYears: z.number().int().min(1).max(120).optional(),

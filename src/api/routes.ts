@@ -22,6 +22,12 @@ export const ROUTES = {
   /** Demographics -> per-trait probability maps (the casting odds). */
   distributions: '/distributions',
 
+  /** Free-text description -> inferred (partial) FaceSpec. No credits spent. */
+  describe: '/describe',
+
+  /** Uploaded headshot -> read (partial) FaceSpec (vision). No credits spent. */
+  analyze: '/analyze',
+
   /** Spend credits and generate images from a spec (saved or inline). */
   generate: '/generate',
   /** Staged sheet generation (head sheet / body sheet / clothed sheet). */
@@ -34,6 +40,8 @@ export const ROUTES = {
 
   consumablesBalance: '/consumables/balance',
   consumablesProducts: '/consumables/products',
+  /** Dev-only: grant credits to the signed-in user (gated by AUTH_TEST_MODE). */
+  consumablesDevTopup: '/consumables/dev-topup',
   consumablesUse: '/consumables/use',
   purchasesHandoff: '/purchases/handoff',
   couponsRedeem: '/coupons/redeem',

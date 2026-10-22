@@ -4,6 +4,13 @@ import { buildDistributions } from './distributions.js';
 import { castFaceSpec } from './cast.js';
 
 const FEATURE_KEYS = Object.keys(FACE_FEATURE_VALUES);
+// Traits a coherent spec may legitimately omit (no meaning in context): facial-hair
+// density/colour on a clean-shaven face, an asymmetry feature on a symmetric one.
+const CONDITIONAL_KEYS = new Set([
+  'facialHairDensity',
+  'facialHairColor',
+  'asymmetryFeature',
+]);
 
 describe('buildDistributions', () => {
   it('returns a normalized distribution for every enum feature', () => {
@@ -48,6 +55,7 @@ describe('castFaceSpec', () => {
   it('fills every enum feature and the result is a valid FaceSpec', () => {
     const { spec } = castFaceSpec({}, {}, { seed: 1 });
     for (const key of FEATURE_KEYS) {
+      if (CONDITIONAL_KEYS.has(key)) continue;
       expect(spec[key as keyof typeof spec], key).toBeDefined();
     }
     expect(faceSpecSchema.safeParse(spec).success).toBe(true);

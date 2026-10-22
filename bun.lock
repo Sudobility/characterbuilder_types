@@ -5,7 +5,7 @@
     "": {
       "name": "@sudobility/characterbuilder_types",
       "dependencies": {
-        "@sudobility/types": "^1.9.68",
+        "@sudobility/types": "^1.9.71",
         "zod": "^4.6.5",
       },
       "devDependencies": {
@@ -198,7 +198,7 @@
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 
-    "@sudobility/types": ["@sudobility/types@1.9.68", "", {}, "sha512-4LL5+UfcqQcc0PKKR/z/PqS6j9DQPVkkjL+3oOW+Bwx0TAu1SVKAlPhlt/9ruNMW+abcHuZoFvbOVD5gdYBSGw=="],
+    "@sudobility/types": ["@sudobility/types@1.9.71", "", {}, "sha512-BhgnvH5zF3HEiknZYbhtaMEuQ9q18qBFJErg8hzObJaHlXp95RauswKLeoHl9viVCFtpiWhOUPiT5kA5/iR7bQ=="],
 
     "@types/chai": ["@types/chai@5.2.3", "", { "dependencies": { "@types/deep-eql": "*", "assertion-error": "^2.0.1" } }, "sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA=="],
 

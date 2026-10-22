@@ -65,6 +65,7 @@ export function sampleGeneration(
       size: 'portrait',
       shot: 'headshot',
       expression: 'neutral',
+      conformity: 0,
     },
     status: 'succeeded',
     images: [

@@ -118,6 +118,9 @@ export const GLOBAL_PRIORS: Multipliers = {
   },
   // Realism: favor some asymmetry (reference doc Part 6)
   asymmetry: { none: 1, subtle: 4, moderate: 1.5 },
+  // A true unibrow (brows meeting) is anatomically uncommon; without this prior the
+  // trait would be near-uniform and a unibrow would surface ~25% of the time.
+  interBrowDistance: { unibrow: 0.3, narrow: 2, average: 5, wide: 2.5 },
 };
 
 /* ───────────────────────── Ancestry tendencies (Part 8) ───────────────────── */

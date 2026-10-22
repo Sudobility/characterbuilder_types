@@ -7,6 +7,7 @@ export {
   mulberry32,
   hashSeed,
   weightedPick,
+  mostLikely,
   chance,
   normalize,
   type Rng,
@@ -17,7 +18,12 @@ export {
   ageBandForYears,
   resolveAgeBand,
 } from './distributions.js';
-export { castFaceSpec, type CastOptions, type CastResult } from './cast.js';
+export {
+  castFaceSpec,
+  resolveDemographics,
+  type CastOptions,
+  type CastResult,
+} from './cast.js';
 export {
   GLOBAL_PRIORS,
   ANCESTRY_MULTIPLIERS,
@@ -27,3 +33,21 @@ export {
   BUILD_MULTIPLIERS,
   type Multipliers,
 } from './weights.js';
+export {
+  attractivenessDistributions,
+  NEUTRAL_DEFAULTS,
+} from './attractiveness.js';
+export {
+  ANCESTRY_FOREST,
+  resolveAncestry,
+  sampleAncestryFraction,
+  blendByFraction,
+  mixDistributions,
+  BLEND_CONCENTRATION,
+  type AncestryNode,
+  type AncestryBlendRef,
+  type AncestryOverlay,
+  type AncestryRef,
+  type AncestryResolution,
+  type ResolvedComponent,
+} from './ancestry.js';

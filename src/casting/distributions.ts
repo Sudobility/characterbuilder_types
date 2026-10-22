@@ -11,6 +11,7 @@ import type {
   TraitDistribution,
 } from '../distribution/index.js';
 import { normalize } from './rng.js';
+import { NEUTRAL_DEFAULTS } from './attractiveness.js';
 import {
   AGE_MULTIPLIERS,
   ANCESTRY_MULTIPLIERS,
@@ -78,8 +79,15 @@ export function buildDistributions(
       continue;
     }
     const prior = GLOBAL_PRIORS[k];
+    // Traits with no curated prior would otherwise be uniform — and a uniform prior
+    // makes an unflattering enum[0] (e.g. interBrowDistance "unibrow",
+    // mouthCorners "downturned") as likely as any other value. When we have a
+    // sensible neutral default for such a trait, peak the prior there so the
+    // common/plausible value dominates while still leaving variety.
+    const favored = prior ? undefined : NEUTRAL_DEFAULTS[k];
     const weights: Record<string, number> = {};
-    for (const value of values) weights[value] = prior?.[value] ?? 1;
+    for (const value of values)
+      weights[value] = prior?.[value] ?? (value === favored ? 8 : 1);
     for (const table of [ancestry, age, health, sex, build] as (
       Multipliers | undefined
     )[]) {
