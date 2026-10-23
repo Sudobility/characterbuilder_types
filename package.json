@@ -1,6 +1,6 @@
 {
   "name": "@sudobility/characterbuilder_types",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Shared TypeScript types and Zod schemas for the CharacterBuilder frontend and backend",
   "type": "module",
   "main": "./dist/index.js",
@@ -31,7 +31,7 @@
   "author": "Sudobility",
   "license": "BUSL-1.1",
   "dependencies": {
-    "@sudobility/types": "^1.9.71",
+    "@sudobility/types": "^1.9.72",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -52,6 +52,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/johnqh/characterbuilder_types.git"
+    "url": "https://github.com/Sudobility/characterbuilder_types.git"
   }
 }
