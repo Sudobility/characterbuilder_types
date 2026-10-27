@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { faceSpecSchema, type FaceSpec } from '../face/index.js';
 import { demographicsSchema } from '../demographics/index.js';
+import { visualStyleIdSchema } from '../visual-styles/index.js';
 
 /**
  * Generation: compose a prompt from a FaceSpec and render N images through
@@ -40,14 +41,16 @@ export const generationParamsSchema = z.object({
   size: imageSizeSchema.default('portrait'),
   shot: shotSchema.default('headshot'),
   expression: expressionSchema.default('neutral'),
+  artStyle: visualStyleIdSchema.default('naturalistic'),
   /** Optional deterministic seed; omitted = random each time. */
   seed: z.number().int().min(0).optional(),
   /** Free-text styling appended to the composed prompt (e.g. lighting). */
   styleNote: z.string().trim().max(600).optional(),
   /**
-   * "Look" level as a fraction, 0..1: the share of unset traits cast to the MOST
-   * COMMON ("beautiful") value for the demographic; the rest are sampled. 0 = full
-   * variety; 1 = the most typical face; 0.9 ≈ 90% typical. The UI exposes it as a
+   * "Look" level as a fraction, 0..1: the share of eligible unset traits drawn
+   * from good-looking odds; the rest use population odds. All hair traits use
+   * population odds at every Look level.
+   * The UI exposes it as a
    * 1–10 "Look" scale (plus "Any" = 0). Default 0.7 (Look 7).
    */
   conformity: z.coerce.number().min(0).max(1).default(0.7),
@@ -77,6 +80,7 @@ export const generateRequestSchema = z.object({
     size: 'portrait',
     shot: 'headshot',
     expression: 'neutral',
+    artStyle: 'naturalistic',
     conformity: 0.7,
   }),
   referenceImage: referenceImageSchema.optional(),

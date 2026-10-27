@@ -12,6 +12,7 @@ export const ROUTES = {
   healthReady: '/health/ready',
 
   me: '/me',
+  visualStyles: '/visual-styles',
 
   characters: '/characters',
   character: (id: string) => `/characters/${id}`,

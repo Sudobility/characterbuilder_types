@@ -593,6 +593,33 @@ export const HAIR_DENSITIES = ['thin', 'medium', 'thick'] as const;
 export const hairDensitySchema = enumOf(HAIR_DENSITIES);
 export type HairDensity = z.infer<typeof hairDensitySchema>;
 
+export const HAIR_LENGTHS = [
+  'very-short',
+  'short',
+  'medium',
+  'long',
+  'very-long',
+] as const;
+export const hairLengthSchema = enumOf(HAIR_LENGTHS);
+export type HairLength = z.infer<typeof hairLengthSchema>;
+
+export const HAIR_STYLES = [
+  'natural',
+  'side-part',
+  'center-part',
+  'slicked-back',
+  'tousled',
+  'layered',
+  'braids',
+  'locs',
+  'ponytail',
+  'bun',
+  'afro',
+  'undercut',
+] as const;
+export const hairStyleSchema = enumOf(HAIR_STYLES);
+export type HairStyle = z.infer<typeof hairStyleSchema>;
+
 export const STRAND_THICKNESSES = ['fine', 'medium', 'coarse'] as const;
 export const strandThicknessSchema = enumOf(STRAND_THICKNESSES);
 export type StrandThickness = z.infer<typeof strandThicknessSchema>;
@@ -840,11 +867,12 @@ export const faceSpecSchema = z
     hairTexture: hairTextureSchema.optional(),
     hairColor: hairColorSchema.optional(),
     hairDensity: hairDensitySchema.optional(),
+    hairLength: hairLengthSchema.optional(),
+    hairStyle: hairStyleSchema.optional(),
     strandThickness: strandThicknessSchema.optional(),
     hairline: hairlineSchema.optional(),
     balding: baldingPatternSchema.optional(),
     greying: greyingLevelSchema.optional(),
-    hairStyle: z.string().trim().max(200).optional(),
     facialHair: facialHairStyleSchema.optional(),
     facialHairDensity: facialHairDensitySchema.optional(),
     facialHairColor: hairColorSchema.optional(),
@@ -875,7 +903,7 @@ export const EMPTY_FACE_SPEC: FaceSpec = {};
 
 /**
  * The enum-valued FaceSpec fields that the casting engine draws from, each paired
- * with its allowed values. Free-text and numeric fields (`hairStyle`, `ageYears`,
+ * with its allowed values. Free-text and numeric fields (`ageYears`,
  * `ancestryNote`, `distinguishingMark`, `extraNotes`) and multi-select arrays
  * (`skinMarks`, `wrinkleAreas`) are handled separately by the caster.
  */
@@ -982,6 +1010,8 @@ export const FACE_FEATURE_VALUES = {
   hairTexture: HAIR_TEXTURES,
   hairColor: HAIR_COLORS,
   hairDensity: HAIR_DENSITIES,
+  hairLength: HAIR_LENGTHS,
+  hairStyle: HAIR_STYLES,
   strandThickness: STRAND_THICKNESSES,
   hairline: HAIRLINES,
   balding: BALDING_PATTERNS,
@@ -1001,13 +1031,28 @@ export const FACE_FEATURE_VALUES = {
 /** The enum FaceSpec fields the caster fills (keys of {@link FACE_FEATURE_VALUES}). */
 export type FaceFeatureKey = keyof typeof FACE_FEATURE_VALUES;
 
+/** Every scalp and facial-hair dial uses population odds, regardless of Look. */
+export const HAIR_FEATURE_KEYS = [
+  'hairTexture',
+  'hairColor',
+  'hairDensity',
+  'hairLength',
+  'hairStyle',
+  'strandThickness',
+  'hairline',
+  'balding',
+  'greying',
+  'facialHair',
+  'facialHairDensity',
+  'facialHairColor',
+] as const satisfies readonly FaceFeatureKey[];
+
 /**
  * The non-enum FaceSpec fields (free text, numbers, multi-select arrays) that the
  * {@link FACE_FEATURE_VALUES} map doesn't cover. Kept alongside it so a sanitizer
  * knows which extra keys are legitimate.
  */
 const FACE_FREEFORM_KEYS = [
-  'hairStyle',
   'ageYears',
   'ancestryNote',
   'distinguishingMark',
@@ -1046,6 +1091,55 @@ export function sanitizeFaceSpec(raw: unknown): FaceSpec {
 
   const parsed = faceSpecSchema.safeParse(candidate);
   return parsed.success ? parsed.data : {};
+}
+
+/** Upgrade a saved free-text hairStyle to the discrete hair dials. */
+export function normalizeLegacyHairStyle(spec: FaceSpec): FaceSpec {
+  const old = (spec as { hairStyle?: unknown }).hairStyle;
+  if (
+    typeof old !== 'string' ||
+    (HAIR_STYLES as readonly string[]).includes(old)
+  )
+    return spec;
+  if (!old.trim()) return { ...spec, hairStyle: undefined };
+  const value = old.toLowerCase();
+  const style =
+    (
+      [
+        [/\b(bun|chignon)\b/, 'bun'],
+        [/\b(ponytail|pony.tail)\b/, 'ponytail'],
+        [/\b(braid|braided|plait)\b/, 'braids'],
+        [/\b(locs?|dreadlocks?)\b/, 'locs'],
+        [/\b(afro)\b/, 'afro'],
+        [/\b(undercut)\b/, 'undercut'],
+        [/\b(slicked|swept back)\b/, 'slicked-back'],
+        [/\b(side.part)\b/, 'side-part'],
+        [/\b(center.part|middle.part)\b/, 'center-part'],
+        [/\b(tousled|messy)\b/, 'tousled'],
+        [/\b(layered|layers)\b/, 'layered'],
+      ] as const
+    ).find(([pattern]) => pattern.test(value))?.[1] ?? 'natural';
+  const length = /waist|very.long|extra.long/.test(value)
+    ? 'very-long'
+    : /\blong\b/.test(value)
+      ? 'long'
+      : /shoulder|medium/.test(value)
+        ? 'medium'
+        : /buzz|cropped|very.short/.test(value)
+          ? 'very-short'
+          : /\bshort\b/.test(value)
+            ? 'short'
+            : undefined;
+  const note = `Hair detail: ${old}`;
+  return {
+    ...spec,
+    hairStyle: style,
+    ...(spec.hairLength || !length ? {} : { hairLength: length as HairLength }),
+    extraNotes: [spec.extraNotes, note]
+      .filter(Boolean)
+      .join(' ')
+      .slice(0, 2000),
+  };
 }
 
 /**

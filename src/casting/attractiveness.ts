@@ -130,13 +130,6 @@ const BASE: Table = {
   profile: { orthognathic: 80, 'mild-prognathic': 17, prognathic: 3 },
   neckThickness: { average: 70, slender: 18, thick: 12 },
 
-  // ── Hair (density/line only; colour & texture stay ancestry-neutral/population) ──
-  hairDensity: { thick: 62, medium: 33, thin: 5 },
-  balding: { none: 94, 'diffuse-thinning': 3, 'temple-recession': 3 },
-  // A full, intact hairline — never receding, m-shaped only rarely (reads as mild
-  // recession). Age/sex-driven recession still comes from the population at low Look.
-  hairline: { straight: 36, rounded: 34, 'widows-peak': 28, 'm-shaped': 2 },
-
   // ── Ears (tidy, close-set) ──
   earSize: { medium: 60, small: 35, large: 5 },
   earProtrusion: { flat: 70, moderate: 27, protruding: 3 },
@@ -216,8 +209,6 @@ function isOld(demo: Demographics): boolean {
  */
 function matureOverrides(): Table {
   return {
-    hairDensity: { thick: 30, medium: 45, thin: 25 }, // age-appropriate, not forced thick
-    balding: {}, // let population decide (an older man can read well bald/thinning)
     jowls: { none: 55, slight: 40, developed: 5 },
     submentalFullness: { clean: 68, slight: 30, 'double-chin': 2 },
     cheekFullness: { full: 40, flat: 52, gaunt: 8 },

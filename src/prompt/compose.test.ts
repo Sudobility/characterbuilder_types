@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { composePrompt } from './index.js';
-import { EMPTY_FACE_SPEC } from '../face/index.js';
+import { EMPTY_FACE_SPEC, normalizeLegacyHairStyle } from '../face/index.js';
 import { sampleFaceSpec } from '../test/index.js';
+import { generationParamsSchema } from '../generation/index.js';
 
 describe('composePrompt', () => {
   it('produces a sensible prompt for the empty spec', () => {
     const p = composePrompt(EMPTY_FACE_SPEC);
-    expect(p).toContain('photorealistic');
+    expect(p).toContain('Naturalistic style');
     expect(p).toContain('head-and-shoulders headshot');
     expect(p).toContain('No text');
   });
@@ -39,6 +40,42 @@ describe('composePrompt', () => {
   it('appends a style note when given', () => {
     const p = composePrompt({}, { styleNote: 'moody rim lighting' });
     expect(p).toContain('moody rim lighting');
+  });
+
+  it('uses the selected art style without a conflicting realism instruction', () => {
+    const p = composePrompt(sampleFaceSpec(), { artStyle: 'watercolor' });
+    expect(p).toContain(
+      'Watercolor style: transparent soft washes and bleeding edges'
+    );
+    expect(p).not.toContain('photorealistic');
+    expect(p).not.toContain('Documentary realism');
+  });
+
+  it('renders discrete hair length and style', () => {
+    const p = composePrompt({
+      hairLength: 'very-long',
+      hairStyle: 'braids',
+      hairTexture: 'coily',
+    });
+    expect(p).toContain('very long hair');
+    expect(p).toContain('hair in braids');
+    expect(p).toContain('tightly coiled hair');
+  });
+
+  it('preserves old free-text hair details when loading a saved character', () => {
+    const spec = normalizeLegacyHairStyle({
+      hairStyle: 'neat low bun with waist-length hair' as never,
+    });
+    expect(spec.hairStyle).toBe('bun');
+    expect(spec.hairLength).toBe('very-long');
+    expect(spec.extraNotes).toContain('neat low bun with waist-length hair');
+  });
+
+  it('defaults to Naturalistic and rejects unknown art styles', () => {
+    expect(generationParamsSchema.parse({}).artStyle).toBe('naturalistic');
+    expect(
+      generationParamsSchema.safeParse({ artStyle: 'unknown-style' }).success
+    ).toBe(false);
   });
 
   it('renders the new eye sub-dials', () => {

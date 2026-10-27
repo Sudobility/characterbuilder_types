@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { FACE_FEATURE_VALUES, faceSpecSchema } from '../face/index.js';
+import {
+  FACE_FEATURE_VALUES,
+  HAIR_FEATURE_KEYS,
+  faceSpecSchema,
+  type FaceSpec,
+} from '../face/index.js';
+import type { FaceDistributions } from '../distribution/index.js';
 import { buildDistributions } from './distributions.js';
 import { castFaceSpec } from './cast.js';
 
@@ -52,6 +58,85 @@ describe('buildDistributions', () => {
 });
 
 describe('castFaceSpec', () => {
+  it('keeps every hair dial outside Look, including length and style', () => {
+    const population = buildDistributions({});
+    const attractive: FaceDistributions = {};
+    const expected: Record<string, string> = {};
+    for (const key of HAIR_FEATURE_KEYS) {
+      const values = FACE_FEATURE_VALUES[key];
+      const natural = values[0];
+      const goodLooking = values[1];
+      if (!natural || !goodLooking) continue;
+      population[key] = { [natural]: 1 };
+      attractive[key] = { [goodLooking]: 1 };
+      expected[key] = natural;
+    }
+    // These values avoid biological corrections after the initial draw.
+    population.greying = { none: 1 };
+    population.balding = { none: 1 };
+    population.facialHair = { stubble: 1 };
+    population.facialHairColor = { black: 1 };
+    expected.greying = 'none';
+    expected.balding = 'none';
+    expected.facialHair = 'stubble';
+    expected.facialHairColor = 'black';
+    const { spec } = castFaceSpec(
+      {},
+      { sex: 'male', ageBand: 'thirties' },
+      {
+        seed: 7,
+        conformity: 1,
+        distributions: population,
+        attractiveness: attractive,
+      }
+    );
+    for (const [key, value] of Object.entries(expected)) {
+      expect(spec[key as keyof FaceSpec], key).toBe(value);
+    }
+  });
+
+  it('rotates the naturally sampled traits across a Look 9 batch', () => {
+    const traits = [
+      ['faceShape', 'square', 'oval'],
+      ['eyeSize', 'small', 'large'],
+      ['eyeSpacing', 'close-set', 'wide-set'],
+      ['browThickness', 'thin', 'thick'],
+      ['noseSize', 'large', 'small'],
+      ['lipFullness', 'thin', 'full'],
+      ['cheekboneHeight', 'low', 'high'],
+      ['jawWidth', 'narrow', 'wide'],
+      ['earSize', 'large', 'small'],
+      ['mouthWidth', 'narrow', 'wide'],
+    ] as const;
+    const population = buildDistributions({});
+    const attractiveness: FaceDistributions = {};
+    for (const [key, natural, goodLooking] of traits) {
+      population[key] = { [natural]: 1 };
+      attractiveness[key] = { [goodLooking]: 1 };
+    }
+    const excluded = Array.from({ length: traits.length }, (_, index) => {
+      const { spec } = castFaceSpec(
+        { hairLength: 'very-long', hairStyle: 'braids' },
+        {},
+        {
+          seed: index + 1,
+          conformity: 0.9,
+          distributions: population,
+          attractiveness,
+          lookBatch: { index, seed: 12345 },
+        }
+      );
+      expect(spec.hairLength).toBe('very-long');
+      expect(spec.hairStyle).toBe('braids');
+      const naturalTraits = traits.filter(
+        ([key, natural]) => spec[key as keyof FaceSpec] === natural
+      );
+      expect(naturalTraits).toHaveLength(1);
+      return naturalTraits[0]![0];
+    });
+    expect(new Set(excluded).size).toBe(traits.length);
+  });
+
   it('fills every enum feature and the result is a valid FaceSpec', () => {
     const { spec } = castFaceSpec({}, {}, { seed: 1 });
     for (const key of FEATURE_KEYS) {

@@ -7,6 +7,7 @@
  */
 import {
   FACE_FEATURE_VALUES,
+  HAIR_FEATURE_KEYS,
   type FaceSpec,
   type SkinMark,
   type WrinkleArea,
@@ -46,20 +47,20 @@ export interface CastOptions {
   /** Pre-built distributions (e.g. with LLM overrides merged); built if absent. */
   distributions?: FaceDistributions;
   /**
-   * "Look" level, 0..1: the fraction of unset traits pulled toward the IDEAL
-   * (most attractive) value for the demographic instead of being sampled. 0
-   * (default) = full variety; 1 = every unset trait ideal; 0.9 = ~90% ideal, the
-   * rest sampled. The ideal value comes from `attractiveness` when present for a
-   * trait, else falls back to the population mode (`distributions`).
+   * "Look" level, 0..1: the fraction of unset, attractiveness-relevant traits
+   * sampled from good-looking odds instead of population odds. Hair traits are
+   * excluded. At 0 all traits use population odds; at 0.9 about 90% of eligible
+   * traits use good-looking odds.
    */
   conformity?: number;
   /**
    * Per-trait odds among GOOD-LOOKING people of the demographic (from the
-   * `character-attractive` endpoint). The "Look" bias uses each trait's most
-   * likely value here as its ideal. Absent → the bias falls back to the
-   * population mode, i.e. "most typical" (the old behavior).
+   * `character-attractive` endpoint). Eligible traits are sampled from these
+   * odds when selected by Look; absent traits use population odds.
    */
   attractiveness?: FaceDistributions;
+  /** Coordinate the Look selection across images in one generation batch. */
+  lookBatch?: { index: number; seed: number };
 }
 
 export interface CastResult {
@@ -255,21 +256,64 @@ export function castFaceSpec(
   const unset = Object.keys(FACE_FEATURE_VALUES).filter((k) => spec[k] == null);
   // The Look budget applies only to traits the attractiveness model covers — the
   // denominator of the 1..10 scale.
-  const lookable = unset.filter((k) =>
-    hasDist(attractiveness?.[k as keyof FaceDistributions])
+  // All hair dials use population odds even when an attractiveness profile names
+  // them. The Look budget is spent only on non-hair traits.
+  const hairKeys = new Set<string>(HAIR_FEATURE_KEYS);
+  const lookable = unset.filter(
+    (k) =>
+      !hairKeys.has(k) &&
+      hasDist(attractiveness?.[k as keyof FaceDistributions])
   );
   // Pick exactly round(conformity · N) of them to be drawn from the attractive
   // distribution; choose which via a seeded shuffle (deterministic under a seed).
   const idealCount = Math.round(conformity * lookable.length);
   const order = [...lookable];
+  // A batch shares one shuffled order. Rotate the non-ideal slice by its own
+  // width for each image: at Look 9, different traits supply the ~10% of
+  // natural variation, instead of coincidentally repeating the same subset.
+  const selectionRng = opts.lookBatch ? mulberry32(opts.lookBatch.seed) : rng;
   for (let i = order.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
+    const j = Math.floor(selectionRng() * (i + 1));
     [order[i], order[j]] = [order[j]!, order[i]!];
   }
-  const ideal = new Set(order.slice(0, idealCount));
+  const excludedCount = order.length - idealCount;
+  const start =
+    opts.lookBatch && excludedCount > 0
+      ? (opts.lookBatch.index * excludedCount) % order.length
+      : idealCount;
+  const excluded = new Set(
+    Array.from(
+      { length: excludedCount },
+      (_, offset) => order[(start + offset) % order.length]!
+    )
+  );
+  const ideal = new Set(order.filter((key) => !excluded.has(key)));
   for (const key of unset) {
     const attr = attractiveness?.[key as keyof FaceDistributions];
     const pop = distributions[key as keyof FaceDistributions];
+    if (key === 'hairStyle' && hasDist(pop)) {
+      const length = spec.hairLength;
+      const texture = spec.hairTexture;
+      const allowed = (style: string) =>
+        !(
+          length === 'very-short' &&
+          [
+            'center-part',
+            'layered',
+            'braids',
+            'locs',
+            'ponytail',
+            'bun',
+          ].includes(style)
+        ) &&
+        !(length === 'short' && ['ponytail', 'bun'].includes(style)) &&
+        !(style === 'afro' && texture !== 'coily' && texture !== 'curly');
+      const compatible = Object.fromEntries(
+        Object.entries(pop!).filter(([style]) => allowed(style))
+      );
+      spec[key] = weightedPick(compatible, rng);
+      continue;
+    }
     if (ideal.has(key) && hasDist(attr)) {
       // Attractive pick, sharpened so the best value dominates (misses rare) while
       // keeping the near-best values possible — "mostly ideal" rather than a clone.

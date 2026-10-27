@@ -1,4 +1,5 @@
 import { type FaceSpec, HAIR_COLORS } from '../face/index.js';
+import { visualStyleById } from '../visual-styles/index.js';
 import type {
   Expression,
   GenerationParams,
@@ -638,6 +639,27 @@ const FEATURE_PHRASES: {
     medium: 'medium-density hair',
     thick: 'thick hair',
   },
+  hairLength: {
+    'very-short': 'very short hair',
+    short: 'short hair',
+    medium: 'medium-length hair',
+    long: 'long hair',
+    'very-long': 'very long hair',
+  },
+  hairStyle: {
+    natural: 'naturally worn hair',
+    'side-part': 'a side-parted hairstyle',
+    'center-part': 'a center-parted hairstyle',
+    'slicked-back': 'slicked-back hair',
+    tousled: 'tousled hair',
+    layered: 'layered hair',
+    braids: 'hair in braids',
+    locs: 'hair in locs',
+    ponytail: 'hair in a ponytail',
+    bun: 'hair in a bun',
+    afro: 'an afro hairstyle',
+    undercut: 'an undercut hairstyle',
+  },
   strandThickness: {
     fine: 'fine hair strands',
     medium: '',
@@ -820,6 +842,8 @@ const FEATURE_ORDER: (keyof FaceSpec)[] = [
   'hairTexture',
   'hairColor',
   'hairDensity',
+  'hairLength',
+  'hairStyle',
   'strandThickness',
   'hairline',
   'balding',
@@ -867,7 +891,7 @@ function subjectClause(
     who = [ancestry, noun].filter(Boolean).join(' ');
   }
   const art = indefinite(who);
-  return `A photorealistic ${SHOT_PHRASE[shot]} of ${art} ${who}, ${EXPRESSION_PHRASE[expression]}.`;
+  return `A ${SHOT_PHRASE[shot]} of ${art} ${who}, ${EXPRESSION_PHRASE[expression]}.`;
 }
 
 /**
@@ -913,15 +937,15 @@ export function composePrompt(
       bits.push(`${spec.facialHairColor.replace(/-/g, ' ')} in color`);
     parts.push(`Facial hair: ${bits.filter(Boolean).join(', ')}.`);
   }
-  if (spec.hairStyle) parts.push(`Hair: ${spec.hairStyle}.`);
   if (spec.ancestryNote) parts.push(spec.ancestryNote + '.');
   if (spec.distinguishingMark)
     parts.push(`Distinguishing feature: ${spec.distinguishingMark}.`);
   if (spec.extraNotes) parts.push(spec.extraNotes);
   if (params?.styleNote) parts.push(params.styleNote);
 
+  const style = visualStyleById(params?.artStyle ?? 'naturalistic')!;
   parts.push(
-    'Documentary realism, like a real casting photograph: natural, imperfect skin with visible pores and no retouching, no beauty filter, no glossy "AI" perfection. Even, soft lighting on a plain neutral backdrop. No text, labels, logos, or watermark.'
+    `Render in ${style.name} style: ${style.description}. Preserve this person's specific features. No text, labels, logos, or watermark.`
   );
 
   return parts.join(' ');

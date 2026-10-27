@@ -12,6 +12,7 @@ export * from './demographics/index.js';
 export * from './distribution/index.js';
 export * from './specs/index.js';
 export * from './generation/index.js';
+export * from './visual-styles/index.js';
 export * from './sheets/index.js';
 export * from './prompt/index.js';
 export * from './casting/index.js';
