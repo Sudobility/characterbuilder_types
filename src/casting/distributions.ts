@@ -75,7 +75,17 @@ export function buildDistributions(
     const k = key as FaceFeatureKey;
     const override = overrides?.[k];
     if (override) {
-      out[key] = normalize(override);
+      // A population-specific table replaces the broad ancestry prior, but age,
+      // sex, health and build still describe this individual. Apply them after
+      // the population table so a leaf selection does not erase age effects.
+      const weights: Record<string, number> = {};
+      for (const value of values) weights[value] = override[value] ?? 0;
+      for (const table of [age, health, sex, build] as (
+        Multipliers | undefined
+      )[]) {
+        applyMultiplier(weights, table?.[k]);
+      }
+      out[key] = normalize(weights);
       continue;
     }
     const prior = GLOBAL_PRIORS[k];

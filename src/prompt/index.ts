@@ -412,7 +412,7 @@ const FEATURE_PHRASES: {
   },
   vermilionHeight: {
     thin: 'a thin vermilion margin',
-    medium: '',
+    medium: 'medium-height visible vermilion',
     tall: 'a tall, full vermilion',
   },
   philtrumLength: {
@@ -422,7 +422,7 @@ const FEATURE_PHRASES: {
   },
   philtrumDepth: {
     shallow: 'a shallow philtrum',
-    medium: '',
+    medium: 'a moderately defined philtrum',
     deep: 'a deeply ridged philtrum',
   },
   cupidsBow: {
@@ -436,8 +436,8 @@ const FEATURE_PHRASES: {
     upturned: 'upturned mouth corners',
   },
   lipProjection: {
-    flat: '',
-    medium: '',
+    flat: 'a flat lip profile',
+    medium: 'moderate lip projection in profile',
     protruding: 'forward-projecting, pouting lips',
   },
   restingMouth: {
@@ -929,6 +929,8 @@ export function composePrompt(
 
   const parts: string[] = [subjectClause(spec, shot, expression)];
   if (clauses.length > 0) parts.push(`The face has ${clauses.join(', ')}.`);
+  const measuredLips = composeLipClause(spec);
+  if (measuredLips) parts.push(measuredLips);
   if (spec.facialHair && spec.facialHair !== 'clean-shaven') {
     const bits = [FEATURE_PHRASES.facialHair?.[spec.facialHair]];
     if (spec.facialHairDensity)
@@ -949,4 +951,46 @@ export function composePrompt(
   );
 
   return parts.join(' ');
+}
+
+/** A compact mouth description placed near the end of the image prompt. */
+export function composeLipClause(spec: FaceSpec): string {
+  const measurements = [
+    spec.mouthWidthMm == null ? '' : `${spec.mouthWidthMm} mm mouth width`,
+    spec.upperVermilionHeightMm == null
+      ? ''
+      : `${spec.upperVermilionHeightMm} mm upper vermilion height`,
+    spec.lowerVermilionHeightMm == null
+      ? ''
+      : `${spec.lowerVermilionHeightMm} mm lower vermilion height`,
+    spec.philtrumLengthMm == null
+      ? ''
+      : `${spec.philtrumLengthMm} mm philtrum length`,
+  ].filter(Boolean);
+  const keys = [
+    'mouthWidth',
+    'lipFullness',
+    'vermilionHeight',
+    'lipRatio',
+    'cupidsBow',
+    'philtrumLength',
+    'philtrumDepth',
+    'lipProjection',
+    'mouthCorners',
+  ] as const;
+  const details = keys.flatMap((key) => {
+    if (key === 'mouthWidth' && spec.mouthWidthMm != null) return [];
+    if (key === 'philtrumLength' && spec.philtrumLengthMm != null) return [];
+    if (
+      (key === 'vermilionHeight' || key === 'lipRatio') &&
+      spec.upperVermilionHeightMm != null &&
+      spec.lowerVermilionHeightMm != null
+    )
+      return [];
+    const value = spec[key];
+    const phrase = value ? FEATURE_PHRASES[key]?.[value] : undefined;
+    return phrase ? [phrase] : [];
+  });
+  const all = [...measurements, ...details];
+  return all.length ? `Mouth and lips: ${all.join(', ')}.` : '';
 }

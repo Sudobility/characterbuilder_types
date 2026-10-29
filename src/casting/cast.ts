@@ -40,6 +40,20 @@ import {
  * two near-equal values in play — "mostly ideal, slight variety".
  */
 const IDEAL_SHARPEN = 3;
+// Lip morphology carries identity even at a high Look. A gentler attractive
+// weighting keeps narrow/wide, thin/tall, and flat/projecting variants visible.
+const LIP_TRAITS = new Set([
+  'lipFullness',
+  'lipRatio',
+  'mouthWidth',
+  'vermilionHeight',
+  'philtrumLength',
+  'philtrumDepth',
+  'cupidsBow',
+  'mouthCorners',
+  'lipProjection',
+]);
+const LIP_IDEAL_SHARPEN = 1.4;
 
 export interface CastOptions {
   /** Deterministic seed; omit for fresh randomness each call. */
@@ -175,6 +189,37 @@ export function castFaceSpec(
   const rng = mulberry32(seed);
 
   const spec: Record<string, unknown> = { ...partial };
+  // Explicit measurements take precedence over older categorical values.
+  if (typeof spec.mouthWidthMm === 'number')
+    spec.mouthWidth =
+      spec.mouthWidthMm < 46
+        ? 'narrow'
+        : spec.mouthWidthMm > 56
+          ? 'wide'
+          : 'medium';
+  if (typeof spec.philtrumLengthMm === 'number')
+    spec.philtrumLength =
+      spec.philtrumLengthMm < 13
+        ? 'short'
+        : spec.philtrumLengthMm > 18
+          ? 'long'
+          : 'medium';
+  const hasMeasuredVermilion =
+    typeof spec.upperVermilionHeightMm === 'number' &&
+    typeof spec.lowerVermilionHeightMm === 'number';
+  if (hasMeasuredVermilion) {
+    const upper = spec.upperVermilionHeightMm as number;
+    const lower = spec.lowerVermilionHeightMm as number;
+    const total = upper + lower;
+    spec.vermilionHeight = total < 17 ? 'thin' : total > 24 ? 'tall' : 'medium';
+    const upperShare = upper / total;
+    spec.lipRatio =
+      upperShare < 0.45
+        ? 'fuller-lower'
+        : upperShare > 0.53
+          ? 'fuller-upper'
+          : 'balanced';
+  }
 
   // Seed the demographic fields from the resolved demographics.
   if (demo.sex != null) spec.sex ??= demo.sex;
@@ -317,7 +362,10 @@ export function castFaceSpec(
     if (ideal.has(key) && hasDist(attr)) {
       // Attractive pick, sharpened so the best value dominates (misses rare) while
       // keeping the near-best values possible — "mostly ideal" rather than a clone.
-      spec[key] = weightedPick(sharpen(attr!, IDEAL_SHARPEN), rng);
+      spec[key] = weightedPick(
+        sharpen(attr!, LIP_TRAITS.has(key) ? LIP_IDEAL_SHARPEN : IDEAL_SHARPEN),
+        rng
+      );
     } else if (hasDist(pop)) {
       spec[key] = weightedPick(pop!, rng); // population variety
     } else {
@@ -328,6 +376,88 @@ export function castFaceSpec(
         FACE_FEATURE_VALUES[key as keyof typeof FACE_FEATURE_VALUES][0];
     }
   }
+
+  // Continuous values are sampled within broad, overlapping anthropometric
+  // bands. These are model ranges, not claimed population percentiles.
+  const between = (low: number, high: number) =>
+    Math.round((low + rng() * (high - low)) * 10) / 10;
+  if (spec.mouthWidthMm == null) {
+    const bands: Record<string, [number, number]> = {
+      narrow: [36, 46],
+      medium: [46, 56],
+      wide: [56, 66],
+    };
+    spec.mouthWidthMm = between(
+      ...(bands[spec.mouthWidth as string] ?? bands.medium!)
+    );
+  }
+  if (spec.philtrumLengthMm == null) {
+    const bands: Record<string, [number, number]> = {
+      short: [8, 13],
+      medium: [13, 18],
+      long: [18, 24],
+    };
+    spec.philtrumLengthMm = between(
+      ...(bands[spec.philtrumLength as string] ?? bands.medium!)
+    );
+  }
+  if (
+    spec.upperVermilionHeightMm == null ||
+    spec.lowerVermilionHeightMm == null
+  ) {
+    const heights: Record<string, [number, number]> = {
+      thin: [10, 17],
+      medium: [17, 24],
+      tall: [24, 32],
+    };
+    const shares: Record<string, [number, number]> = {
+      'fuller-lower': [0.36, 0.45],
+      balanced: [0.45, 0.53],
+      'fuller-upper': [0.53, 0.6],
+    };
+    const total = between(
+      ...(heights[spec.vermilionHeight as string] ?? heights.medium!)
+    );
+    const [shareMin, shareMax] =
+      shares[spec.lipRatio as string] ?? shares.balanced!;
+    const upperShare = shareMin + rng() * (shareMax - shareMin);
+    if (
+      spec.upperVermilionHeightMm == null &&
+      spec.lowerVermilionHeightMm == null
+    ) {
+      spec.upperVermilionHeightMm =
+        Math.round(Math.min(18, total * upperShare) * 10) / 10;
+      spec.lowerVermilionHeightMm =
+        Math.round(
+          Math.min(20, total - (spec.upperVermilionHeightMm as number)) * 10
+        ) / 10;
+    } else if (spec.upperVermilionHeightMm == null) {
+      const lower = spec.lowerVermilionHeightMm as number;
+      spec.upperVermilionHeightMm =
+        Math.round(
+          Math.max(2, Math.min(18, (lower * upperShare) / (1 - upperShare))) *
+            10
+        ) / 10;
+    } else {
+      const upper = spec.upperVermilionHeightMm as number;
+      spec.lowerVermilionHeightMm =
+        Math.round(
+          Math.max(2, Math.min(20, (upper * (1 - upperShare)) / upperShare)) *
+            10
+        ) / 10;
+    }
+  }
+  const upper = spec.upperVermilionHeightMm as number;
+  const lower = spec.lowerVermilionHeightMm as number;
+  const total = upper + lower;
+  spec.vermilionHeight = total < 17 ? 'thin' : total > 24 ? 'tall' : 'medium';
+  const upperShare = upper / total;
+  spec.lipRatio =
+    upperShare < 0.45
+      ? 'fuller-lower'
+      : upperShare > 0.53
+        ? 'fuller-upper'
+        : 'balanced';
 
   // ── Hard constraints ──────────────────────────────────────────────────────
   const years = spec.ageYears as number | undefined;

@@ -1,10 +1,47 @@
 import { describe, it, expect } from 'vitest';
-import { composePrompt } from './index.js';
+import { composePrompt, composeLipClause } from './index.js';
 import { EMPTY_FACE_SPEC, normalizeLegacyHairStyle } from '../face/index.js';
 import { sampleFaceSpec } from '../test/index.js';
 import { generationParamsSchema } from '../generation/index.js';
 
 describe('composePrompt', () => {
+  it('puts explicit measurements in the image prompt', () => {
+    const prompt = composePrompt({
+      mouthWidthMm: 62,
+      upperVermilionHeightMm: 7.5,
+      lowerVermilionHeightMm: 12.5,
+      philtrumLengthMm: 20,
+    });
+    expect(prompt).toContain('62 mm mouth width');
+    expect(prompt).toContain('7.5 mm upper vermilion height');
+    expect(prompt).toContain('12.5 mm lower vermilion height');
+    expect(prompt).toContain('20 mm philtrum length');
+  });
+  it('states every cast lip axis explicitly for image rendering', () => {
+    const clause = composeLipClause({
+      mouthWidth: 'wide',
+      lipFullness: 'thin',
+      vermilionHeight: 'thin',
+      lipRatio: 'fuller-lower',
+      cupidsBow: 'flat',
+      philtrumLength: 'long',
+      philtrumDepth: 'shallow',
+      lipProjection: 'flat',
+      mouthCorners: 'downturned',
+    });
+    for (const detail of [
+      'wide mouth',
+      'thin lips',
+      'thin vermilion margin',
+      'fuller lower lip',
+      'flat cupid',
+      'long philtrum',
+      'shallow philtrum',
+      'flat lip profile',
+      'downturned mouth corners',
+    ])
+      expect(clause).toContain(detail);
+  });
   it('produces a sensible prompt for the empty spec', () => {
     const p = composePrompt(EMPTY_FACE_SPEC);
     expect(p).toContain('Naturalistic style');

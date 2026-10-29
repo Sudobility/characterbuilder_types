@@ -801,6 +801,14 @@ export const faceSpecSchema = z
     nasalIndex: nasalIndexSchema.optional(),
 
     // Mouth & lips
+    /** Commissure-to-commissure distance in millimeters. */
+    mouthWidthMm: z.number().min(30).max(75).optional(),
+    /** Visible upper red lip height at the midline, in millimeters. */
+    upperVermilionHeightMm: z.number().min(2).max(18).optional(),
+    /** Visible lower red lip height at the midline, in millimeters. */
+    lowerVermilionHeightMm: z.number().min(2).max(20).optional(),
+    /** Subnasale-to-upper-vermilion distance in millimeters. */
+    philtrumLengthMm: z.number().min(5).max(30).optional(),
     lipFullness: lipFullnessSchema.optional(),
     lipRatio: lipRatioSchema.optional(),
     mouthWidth: mouthWidthSchema.optional(),
@@ -1059,6 +1067,10 @@ const FACE_FREEFORM_KEYS = [
   'extraNotes',
   'wrinkleAreas',
   'skinMarks',
+  'mouthWidthMm',
+  'upperVermilionHeightMm',
+  'lowerVermilionHeightMm',
+  'philtrumLengthMm',
 ] as const satisfies readonly (keyof FaceSpec)[];
 
 /**

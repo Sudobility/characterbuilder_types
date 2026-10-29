@@ -19,6 +19,122 @@ const CONDITIONAL_KEYS = new Set([
 ]);
 
 describe('buildDistributions', () => {
+  it('keeps every lip shape available and avoids a dominant neutral default', () => {
+    const lipKeys = [
+      'lipFullness',
+      'lipRatio',
+      'mouthWidth',
+      'vermilionHeight',
+      'philtrumLength',
+      'philtrumDepth',
+      'cupidsBow',
+      'mouthCorners',
+      'lipProjection',
+    ] as const;
+    for (const demographic of [
+      {
+        ancestry: 'european' as const,
+        sex: 'female' as const,
+        ageBand: 'thirties' as const,
+      },
+      {
+        ancestry: 'sub-saharan-african' as const,
+        sex: 'male' as const,
+        ageBand: 'sixties' as const,
+      },
+      {
+        ancestry: 'east-asian' as const,
+        sex: 'female' as const,
+        ageBand: 'twenties' as const,
+      },
+    ]) {
+      const distributions = buildDistributions(demographic);
+      for (const key of lipKeys) {
+        const probabilities = FACE_FEATURE_VALUES[key].map(
+          (value) => distributions[key]?.[value] ?? 0
+        );
+        expect(
+          probabilities.every((probability) => probability > 0),
+          key
+        ).toBe(true);
+        expect(Math.max(...probabilities), key).toBeLessThan(0.7);
+      }
+    }
+  });
+
+  it('uses ancestry, age, and sex together for lip morphology', () => {
+    const european = buildDistributions({
+      ancestry: 'european',
+      sex: 'female',
+      ageBand: 'twenties',
+    });
+    const african = buildDistributions({
+      ancestry: 'sub-saharan-african',
+      sex: 'female',
+      ageBand: 'twenties',
+    });
+    const eastAsian = buildDistributions({
+      ancestry: 'east-asian',
+      sex: 'female',
+      ageBand: 'twenties',
+    });
+    expect(african.vermilionHeight!.tall).toBeGreaterThan(
+      european.vermilionHeight!.tall!
+    );
+    expect(eastAsian.vermilionHeight!.tall).toBeGreaterThan(
+      european.vermilionHeight!.tall!
+    );
+    expect(african.mouthWidth!.wide).toBeGreaterThan(
+      european.mouthWidth!.wide!
+    );
+    const older = buildDistributions({
+      ancestry: 'sub-saharan-african',
+      sex: 'female',
+      ageBand: 'seventies-plus',
+    });
+    expect(older.lipFullness!.thin).toBeGreaterThan(african.lipFullness!.thin!);
+    expect(older.philtrumLength!.long).toBeGreaterThan(
+      african.philtrumLength!.long!
+    );
+    const male = buildDistributions({
+      ancestry: 'european',
+      sex: 'male',
+      ageBand: 'twenties',
+    });
+    expect(male.mouthWidth!.wide).toBeGreaterThan(european.mouthWidth!.wide!);
+  });
+
+  it('applies age after a named population overlay', () => {
+    const overlay = { lipFullness: { thin: 6, medium: 36, full: 58 } };
+    const young = buildDistributions({ ageBand: 'twenties' }, overlay);
+    const old = buildDistributions({ ageBand: 'seventies-plus' }, overlay);
+    expect(old.lipFullness!.thin).toBeGreaterThan(young.lipFullness!.thin!);
+  });
+
+  it('samples varied lip values from the selected demographic at Look 4', () => {
+    const counts = (ancestry: 'european' | 'sub-saharan-african') => {
+      const tally = { narrow: 0, medium: 0, wide: 0, thin: 0, tall: 0 };
+      for (let seed = 1; seed <= 300; seed++) {
+        const { spec } = castFaceSpec(
+          {},
+          { ancestry, sex: 'female', ageBand: 'thirties' },
+          { seed, conformity: 0.4 }
+        );
+        tally[spec.mouthWidth as 'narrow' | 'medium' | 'wide']++;
+        if (spec.vermilionHeight === 'thin' || spec.vermilionHeight === 'tall')
+          tally[spec.vermilionHeight]++;
+      }
+      return tally;
+    };
+    const european = counts('european');
+    const african = counts('sub-saharan-african');
+    expect(european.narrow).toBeGreaterThan(25);
+    expect(european.wide).toBeGreaterThan(25);
+    expect(european.thin).toBeGreaterThan(25);
+    expect(european.tall).toBeGreaterThan(25);
+    expect(african.tall).toBeGreaterThan(european.tall);
+  });
+
   it('returns a normalized distribution for every enum feature', () => {
     const d = buildDistributions({});
     for (const key of FEATURE_KEYS) {
@@ -58,6 +174,59 @@ describe('buildDistributions', () => {
 });
 
 describe('castFaceSpec', () => {
+  it('uses explicit continuous lip measurements and derives compatible labels', () => {
+    const { spec } = castFaceSpec(
+      {
+        mouthWidthMm: 62.5,
+        upperVermilionHeightMm: 6.5,
+        lowerVermilionHeightMm: 13.5,
+        philtrumLengthMm: 21,
+        mouthWidth: 'narrow',
+        lipRatio: 'fuller-upper',
+      },
+      { sex: 'female', ageBand: 'thirties' },
+      { seed: 12 }
+    );
+    expect(spec.mouthWidthMm).toBe(62.5);
+    expect(spec.mouthWidth).toBe('wide');
+    expect(spec.lipRatio).toBe('fuller-lower');
+    expect(spec.vermilionHeight).toBe('medium');
+    expect(spec.philtrumLength).toBe('long');
+    expect(faceSpecSchema.safeParse(spec).success).toBe(true);
+  });
+
+  it('fills continuous lip measurements in a random cast', () => {
+    for (let seed = 0; seed < 100; seed++) {
+      const { spec } = castFaceSpec(
+        {},
+        { sex: 'female', ancestry: 'east-asian' },
+        { seed }
+      );
+      for (const key of [
+        'mouthWidthMm',
+        'upperVermilionHeightMm',
+        'lowerVermilionHeightMm',
+        'philtrumLengthMm',
+      ] as const)
+        expect(spec[key], key).toBeTypeOf('number');
+      expect(faceSpecSchema.safeParse(spec).success).toBe(true);
+    }
+  });
+
+  it('keeps the tall-vermilion tail inside the measurement schema', () => {
+    const { spec } = castFaceSpec(
+      {},
+      {
+        ancestry: 'european',
+        sex: 'female',
+        ageBand: 'sixties',
+      },
+      { seed: 1388, conformity: 0.4 }
+    );
+    expect(spec.lowerVermilionHeightMm).toBeLessThanOrEqual(20);
+    expect(faceSpecSchema.safeParse(spec).success).toBe(true);
+  });
+
   it('keeps every hair dial outside Look, including length and style', () => {
     const population = buildDistributions({});
     const attractive: FaceDistributions = {};

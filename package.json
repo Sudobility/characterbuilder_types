@@ -1,6 +1,6 @@
 {
   "name": "@sudobility/characterbuilder_types",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Shared TypeScript types and Zod schemas for the CharacterBuilder frontend and backend",
   "type": "module",
   "main": "./dist/index.js",

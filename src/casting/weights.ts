@@ -92,6 +92,18 @@ export const GLOBAL_PRIORS: Multipliers = {
   columella: { retracted: 1, neutral: 5, hanging: 1 },
   noseTipRotation: { upturned: 1.5, neutral: 4, downturned: 1.5 },
   // Mouth / teeth
+  // Deliberately broad modeling priors, not measured population percentages.
+  // Anthropometric papers report continuous measurements rather than these enum
+  // cutoffs. Keep the tails visible so a low Look score produces distinct lips.
+  lipFullness: { thin: 25, medium: 45, full: 30 },
+  lipRatio: { balanced: 35, 'fuller-upper': 20, 'fuller-lower': 45 },
+  mouthWidth: { narrow: 25, medium: 50, wide: 25 },
+  vermilionHeight: { thin: 25, medium: 50, tall: 25 },
+  philtrumLength: { short: 25, medium: 50, long: 25 },
+  philtrumDepth: { shallow: 25, medium: 50, deep: 25 },
+  cupidsBow: { sharp: 30, rounded: 45, flat: 25 },
+  mouthCorners: { downturned: 20, neutral: 55, upturned: 25 },
+  lipProjection: { flat: 25, medium: 50, protruding: 25 },
   restingMouth: { closed: 6, 'slightly-parted': 1.5, open: 0.4 },
   biteClass: { 'class-i': 6, 'class-ii': 1.5, 'class-iii': 0.6 },
   teeth: { even: 4, gapped: 1.5, crowded: 1.5, prominent: 1 },
@@ -182,7 +194,9 @@ export const ANCESTRY_MULTIPLIERS: Record<string, Multipliers> = {
     noseWidth: { wide: 3, medium: 1.5, narrow: 0.5 },
     alarBaseWidth: { wide: 3, medium: 1.5, narrow: 0.5 },
     noseBridgeHeight: { low: 2, medium: 1.5, high: 0.6 },
-    lipFullness: { full: 3, medium: 1.5, thin: 0.4 },
+    lipFullness: { full: 1.7, medium: 1, thin: 0.7 },
+    vermilionHeight: { tall: 1.6, medium: 1, thin: 0.7 },
+    mouthWidth: { wide: 1.25, medium: 1, narrow: 0.85 },
     epicanthicFold: { none: 3, slight: 0.4, pronounced: 0.2 },
     profile: { 'mild-prognathic': 1.6, prognathic: 1.3 },
   },
@@ -275,6 +289,7 @@ export const ANCESTRY_MULTIPLIERS: Record<string, Multipliers> = {
     epicanthicFold: { none: 4, slight: 0.3, pronounced: 0.1 },
     pigmentation: { freckled: 2 },
     profile: { orthognathic: 1.5 },
+    vermilionHeight: { thin: 1.2, medium: 1, tall: 0.85 },
   },
   'east-asian': {
     skinTone: {
@@ -320,6 +335,7 @@ export const ANCESTRY_MULTIPLIERS: Record<string, Multipliers> = {
     midfaceProjection: { flat: 2.5, medium: 1.5, forward: 0.5 },
     browRidge: { flat: 2, moderate: 1, heavy: 0.4 },
     cranialShape: { brachycephalic: 1.8 },
+    vermilionHeight: { tall: 1.2, medium: 1, thin: 0.85 },
   },
   'southeast-asian': {
     skinTone: {
@@ -486,6 +502,9 @@ export const AGE_MULTIPLIERS: Record<string, Multipliers> = {
     hairDensity: { thin: 1.5 },
     teethColor: { yellowed: 1.5 },
     lipFullness: { thin: 1.5 },
+    vermilionHeight: { thin: 1.4, tall: 0.8 },
+    philtrumLength: { long: 1.3, short: 0.8 },
+    mouthWidth: { wide: 1.15 },
   },
   sixties: {
     wrinkleLevel: { deep: 3, moderate: 2, none: 0.05 },
@@ -501,6 +520,9 @@ export const AGE_MULTIPLIERS: Record<string, Multipliers> = {
     hairDensity: { thin: 2 },
     earSize: { large: 1.5 },
     lipFullness: { thin: 2 },
+    vermilionHeight: { thin: 1.6, tall: 0.7 },
+    philtrumLength: { long: 1.5, short: 0.7 },
+    mouthWidth: { wide: 1.25 },
   },
   'seventies-plus': {
     wrinkleLevel: { deep: 5, moderate: 1.5, none: 0.02 },
@@ -511,6 +533,9 @@ export const AGE_MULTIPLIERS: Record<string, Multipliers> = {
     jowls: { developed: 3 },
     submentalFullness: { 'double-chin': 1.5, slight: 2 },
     lipFullness: { thin: 3 },
+    vermilionHeight: { thin: 1.8, tall: 0.6 },
+    philtrumLength: { long: 1.7, short: 0.6 },
+    mouthWidth: { wide: 1.3 },
     earSize: { large: 2 },
     skinTexture: { coarse: 1.5 },
     tearTrough: { hollow: 2 },
@@ -565,7 +590,8 @@ export const SEX_MULTIPLIERS: Record<string, Multipliers> = {
     chinProjection: { prominent: 1.6, neutral: 1.2 },
     chinShape: { square: 1.8, broad: 1.5, round: 0.7, pointed: 0.5 },
     cheekFullness: { flat: 1.3 },
-    lipFullness: { thin: 1.3, medium: 1.2, full: 0.7 },
+    mouthWidth: { wide: 1.25, narrow: 0.85 },
+    lipRatio: { 'fuller-lower': 1.15, 'fuller-upper': 0.85 },
     noseSize: { large: 1.5, medium: 1.2 },
     noseLength: { long: 1.3 },
     foreheadSlope: { sloping: 1.3, slight: 1.2 },
@@ -595,7 +621,7 @@ export const SEX_MULTIPLIERS: Record<string, Multipliers> = {
     chinProjection: { neutral: 1.3, receding: 1.1 },
     cheekboneHeight: { high: 1.5 },
     cheekFullness: { full: 1.5 },
-    lipFullness: { full: 1.8, medium: 1.3, thin: 0.6 },
+    mouthWidth: { narrow: 1.15, wide: 0.9 },
     noseSize: { small: 1.6, medium: 1.2, large: 0.6 },
     eyeSize: { large: 1.4 },
     lashLength: { long: 1.6, medium: 1.2 },

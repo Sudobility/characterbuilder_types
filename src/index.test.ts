@@ -111,6 +111,11 @@ describe('generation', () => {
 });
 
 describe('sanitizeFaceSpec', () => {
+  it('keeps valid measured lip dimensions and drops out-of-range ones', () => {
+    expect(
+      sanitizeFaceSpec({ mouthWidthMm: 54.5, upperVermilionHeightMm: 30 })
+    ).toEqual({ mouthWidthMm: 54.5 });
+  });
   it('keeps valid enum traits and drops unknown keys / values', () => {
     const out = sanitizeFaceSpec({
       faceShape: 'oval', // valid enum
