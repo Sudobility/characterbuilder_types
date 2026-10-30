@@ -111,6 +111,12 @@ describe('generation', () => {
 });
 
 describe('sanitizeFaceSpec', () => {
+  it('keeps measured eye-opening ratios within range', () => {
+    expect(sanitizeFaceSpec({ eyeOpeningRatioPercent: 28 })).toEqual({
+      eyeOpeningRatioPercent: 28,
+    });
+    expect(sanitizeFaceSpec({ eyeOpeningRatioPercent: 70 })).toEqual({});
+  });
   it('keeps valid measured lip dimensions and drops out-of-range ones', () => {
     expect(
       sanitizeFaceSpec({ mouthWidthMm: 54.5, upperVermilionHeightMm: 30 })

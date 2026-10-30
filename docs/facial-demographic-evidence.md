@@ -39,3 +39,22 @@ modeling choices, **not** clinical cutoffs or estimated population quantiles.
 Explicit slider values override the derived legacy enum categories. Features
 without a stable single distance, such as Cupid's-bow shape or mouth-corner
 direction, remain discrete.
+
+## Visible eye opening
+
+`eyeOpeningRatioPercent` is palpebral fissure height divided by width. It
+describes the vertical eye aperture independently of overall eye size,
+almond/round shape, eyelid crease, and epicanthic fold. A lower value gives a
+more horizontally elongated appearance. It is a direct slider when specified
+and a continuous random draw otherwise.
+
+A [3D comparison of young Chinese and Caucasian adults](https://pubmed.ncbi.nlm.nih.gov/39839011/)
+reported smaller fissure measurements in the Chinese sample, especially among
+men. An [Asian eyelid anthropometry study](https://pubmed.ncbi.nlm.nih.gov/18349663/)
+reported an adult mean near 8 mm vertically and 27 mm horizontally, while a
+[Chinese eyelid aging study](https://pubmed.ncbi.nlm.nih.gov/32896512/) found
+decreasing fissure height with age. Imaging protocols and samples differ, so
+the code uses a modest, overlapping East Asian shift rather than treating
+either study mean as a universal norm. A [3D sample of 97 Malaysian Chinese](https://pubmed.ncbi.nlm.nih.gov/29093554/)
+found visible double eyelids in 70.1% of participants; a narrower aperture
+must therefore remain possible with either a monolid or a double eyelid.

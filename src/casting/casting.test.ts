@@ -19,6 +19,14 @@ const CONDITIONAL_KEYS = new Set([
 ]);
 
 describe('buildDistributions', () => {
+  it('favors lower upper-lid folds for East Asian casts without forcing a monolid', () => {
+    const eastAsian = buildDistributions({ ancestry: 'east-asian' });
+    const european = buildDistributions({ ancestry: 'european' });
+    expect(eastAsian.lidFoldHeight!.low).toBeGreaterThan(
+      european.lidFoldHeight!.low!
+    );
+    expect(eastAsian.lidType!.double).toBeGreaterThan(0);
+  });
   it('keeps every lip shape available and avoids a dominant neutral default', () => {
     const lipKeys = [
       'lipFullness',
@@ -174,6 +182,51 @@ describe('buildDistributions', () => {
 });
 
 describe('castFaceSpec', () => {
+  it('samples a narrower visible eye opening for Chinese casts with overlap', () => {
+    const sample = (subPopulation: string) => {
+      const ratios = Array.from(
+        { length: 300 },
+        (_, index) =>
+          castFaceSpec(
+            {},
+            { subPopulation, sex: 'female', ageBand: 'twenties' },
+            { seed: index + 1, conformity: 0.7 }
+          ).spec.eyeOpeningRatioPercent!
+      );
+      return {
+        mean: ratios.reduce((sum, value) => sum + value, 0) / ratios.length,
+        narrow: ratios.filter((value) => value < 32).length,
+        wide: ratios.filter((value) => value > 36).length,
+      };
+    };
+    const chinese = sample('Chinese');
+    const european = sample('French');
+    expect(chinese.mean).toBeLessThan(european.mean - 2);
+    expect(chinese.narrow).toBeGreaterThan(90);
+    expect(chinese.wide).toBeGreaterThan(0);
+    expect(european.narrow).toBeGreaterThan(0);
+  });
+
+  it('preserves an explicitly selected eye-opening ratio', () => {
+    const { spec } = castFaceSpec(
+      { eyeOpeningRatioPercent: 24 },
+      { subPopulation: 'Chinese' },
+      { seed: 9, conformity: 1 }
+    );
+    expect(spec.eyeOpeningRatioPercent).toBe(24);
+    expect(faceSpecSchema.safeParse(spec).success).toBe(true);
+  });
+
+  it('applies the eye-opening age tendency with exact age only', () => {
+    const mean = (ageYears: number) =>
+      Array.from(
+        { length: 100 },
+        (_, seed) =>
+          castFaceSpec({}, { ancestry: 'east-asian', ageYears }, { seed }).spec
+            .eyeOpeningRatioPercent!
+      ).reduce((sum, value) => sum + value, 0) / 100;
+    expect(mean(60)).toBeLessThan(mean(30) - 1);
+  });
   it('uses explicit continuous lip measurements and derives compatible labels', () => {
     const { spec } = castFaceSpec(
       {

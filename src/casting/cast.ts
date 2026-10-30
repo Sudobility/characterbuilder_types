@@ -459,6 +459,28 @@ export function castFaceSpec(
         ? 'fuller-upper'
         : 'balanced';
 
+  // Palpebral fissure height / width is separate from overall eye size and
+  // upper-lid crease type. Use broad, overlapping model ranges: the published
+  // measurements vary by sample and imaging method, so these are not population
+  // percentiles. A lower ratio yields the horizontally elongated opening the
+  // categorical eyeShape dial could not express.
+  if (spec.eyeOpeningRatioPercent == null) {
+    const eastAsian = spec.ancestry === 'east-asian';
+    let center = eastAsian ? 32 : 35;
+    if (eastAsian && spec.sex === 'male') center -= 1;
+    if (eastAsian && spec.sex === 'female') center += 0.5;
+    if (
+      ['fifties', 'sixties', 'seventies-plus'].includes(
+        spec.ageBand as string
+      ) ||
+      (typeof spec.ageYears === 'number' && spec.ageYears >= 50)
+    )
+      center -= 1.5;
+    const spread = (rng() + rng() + rng() - 1.5) * 6;
+    spec.eyeOpeningRatioPercent =
+      Math.round(Math.min(55, Math.max(18, center + spread)) * 10) / 10;
+  }
+
   // ── Hard constraints ──────────────────────────────────────────────────────
   const years = spec.ageYears as number | undefined;
   const band = spec.ageBand as string | undefined;

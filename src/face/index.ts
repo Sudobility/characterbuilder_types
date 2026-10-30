@@ -762,6 +762,8 @@ export const faceSpecSchema = z
     eyeSpacing: eyeSpacingSchema.optional(),
     orbitalDepth: orbitalDepthSchema.optional(),
     eyeShape: eyeShapeSchema.optional(),
+    /** Visible eye-opening height divided by width, as a percentage. */
+    eyeOpeningRatioPercent: z.number().min(18).max(55).optional(),
     canthalTilt: canthalTiltSchema.optional(),
     lidType: lidTypeSchema.optional(),
     lidCrease: lidCreaseSchema.optional(),
@@ -1067,6 +1069,7 @@ const FACE_FREEFORM_KEYS = [
   'extraNotes',
   'wrinkleAreas',
   'skinMarks',
+  'eyeOpeningRatioPercent',
   'mouthWidthMm',
   'upperVermilionHeightMm',
   'lowerVermilionHeightMm',

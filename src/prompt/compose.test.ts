@@ -5,6 +5,12 @@ import { sampleFaceSpec } from '../test/index.js';
 import { generationParamsSchema } from '../generation/index.js';
 
 describe('composePrompt', () => {
+  it('describes the measured eye aperture explicitly', () => {
+    const p = composePrompt({ eyeOpeningRatioPercent: 27, lidType: 'double' });
+    expect(p).toContain('27% of its width');
+    expect(p).toContain('horizontally elongated eye aperture');
+    expect(p).toContain('double eyelids');
+  });
   it('puts explicit measurements in the image prompt', () => {
     const prompt = composePrompt({
       mouthWidthMm: 62,

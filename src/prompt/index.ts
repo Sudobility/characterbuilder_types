@@ -929,6 +929,8 @@ export function composePrompt(
 
   const parts: string[] = [subjectClause(spec, shot, expression)];
   if (clauses.length > 0) parts.push(`The face has ${clauses.join(', ')}.`);
+  const eyeOpening = composeEyeOpeningClause(spec);
+  if (eyeOpening) parts.push(eyeOpening);
   const measuredLips = composeLipClause(spec);
   if (measuredLips) parts.push(measuredLips);
   if (spec.facialHair && spec.facialHair !== 'clean-shaven') {
@@ -951,6 +953,19 @@ export function composePrompt(
   );
 
   return parts.join(' ');
+}
+
+/** Keep visible aperture geometry explicit for the image model. */
+export function composeEyeOpeningClause(spec: FaceSpec): string {
+  const ratio = spec.eyeOpeningRatioPercent;
+  if (ratio == null) return '';
+  const shape =
+    ratio < 32
+      ? 'a narrow vertical opening and a horizontally elongated eye aperture'
+      : ratio < 37
+        ? 'a moderately narrow vertical eye opening'
+        : 'a relatively open vertical eye aperture';
+  return `Eye opening: palpebral fissure height is ${ratio}% of its width, with ${shape}. Keep the eyelid crease and epicanthic fold specified above.`;
 }
 
 /** A compact mouth description placed near the end of the image prompt. */
