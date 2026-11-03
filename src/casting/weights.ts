@@ -74,6 +74,20 @@ export const GLOBAL_PRIORS: Multipliers = {
     grey: 0.4,
     blue: 1,
   },
+  // Face shape — without a prior this is uniform across 8 shapes, which makes the
+  // rare pear/trapezoid shapes as common as oval. Favor the shapes that actually
+  // dominate human populations; ancestry nodes that set their own faceShape (East
+  // Asian, African, Indigenous…) override this.
+  faceShape: {
+    oval: 24,
+    round: 18,
+    square: 16,
+    rectangular: 11,
+    heart: 13,
+    diamond: 8,
+    triangle: 5,
+    trapezoid: 5,
+  },
   // Eyes
   lidType: {
     double: 4,
@@ -89,7 +103,10 @@ export const GLOBAL_PRIORS: Multipliers = {
   limbalRing: { faint: 3, medium: 3, strong: 1 },
   scleralShow: { none: 6, lower: 1.5, 'upper-and-lower': 0.5 },
   tearTrough: { smooth: 5, hollow: 1.5, puffy: 1 },
-  // Nose
+  // Nose — without a prior noseWidth/nasalIndex are uniform; medium is the human
+  // mode. Ancestry multipliers skew these (narrow for European, wide for African…).
+  noseWidth: { narrow: 25, medium: 50, wide: 25 },
+  nasalIndex: { leptorrhine: 25, mesorrhine: 50, platyrrhine: 25 },
   columella: { retracted: 1, neutral: 5, hanging: 1 },
   noseTipRotation: { upturned: 1.5, neutral: 4, downturned: 1.5 },
   // Mouth / teeth
@@ -198,6 +215,13 @@ export const ANCESTRY_MULTIPLIERS: Record<string, Multipliers> = {
     lipFullness: { full: 1.7, medium: 1, thin: 0.7 },
     vermilionHeight: { tall: 1.6, medium: 1, thin: 0.7 },
     mouthWidth: { wide: 1.25, medium: 1, narrow: 0.85 },
+    lidType: {
+      double: 2,
+      monolid: 0.08,
+      prominent: 1.3,
+      hooded: 1.1,
+      'deep-set': 0.8,
+    },
     epicanthicFold: { none: 3, slight: 0.4, pronounced: 0.2 },
     profile: { 'mild-prognathic': 1.6, prognathic: 1.3 },
   },
@@ -231,6 +255,14 @@ export const ANCESTRY_MULTIPLIERS: Record<string, Multipliers> = {
     },
     noseBridgeHeight: { high: 2.5, medium: 1.5, low: 0.5 },
     noseBridge: { convex: 2, straight: 1.5 },
+    lidType: {
+      double: 2,
+      monolid: 0.08,
+      hooded: 1.4,
+      'deep-set': 1.2,
+      prominent: 1,
+    },
+    epicanthicFold: { none: 5, slight: 0.4, pronounced: 0.15 },
     browThickness: { thick: 2, medium: 1.5, thin: 0.5 },
     browDensity: { full: 2 },
   },
@@ -249,6 +281,14 @@ export const ANCESTRY_MULTIPLIERS: Record<string, Multipliers> = {
     irisColor: { brown: 3, 'dark-brown': 3, hazel: 1.5, green: 0.8, blue: 0.4 },
     noseBridgeHeight: { high: 2.5, medium: 1.5, low: 0.5 },
     noseBridge: { convex: 2.2, humped: 1.3, straight: 1.2 },
+    lidType: {
+      double: 2,
+      monolid: 0.08,
+      hooded: 1.5,
+      'deep-set': 1.3,
+      prominent: 1.1,
+    },
+    epicanthicFold: { none: 5, slight: 0.4, pronounced: 0.15 },
     browThickness: { thick: 2.2, medium: 1.5, thin: 0.4 },
     browDensity: { full: 2.2 },
     lashDensity: { dense: 1.8 },
@@ -287,6 +327,15 @@ export const ANCESTRY_MULTIPLIERS: Record<string, Multipliers> = {
     nasalIndex: { leptorrhine: 2, mesorrhine: 1.5, platyrrhine: 0.5 },
     noseWidth: { narrow: 2, medium: 1.5, wide: 0.6 },
     noseBridgeHeight: { high: 1.8, medium: 1.5, low: 0.6 },
+    // The global lidType prior leaves ~17% monolid; a monolid is characteristically
+    // East Asian and vanishingly rare in Europeans — suppress it here.
+    lidType: {
+      double: 2,
+      monolid: 0.08,
+      hooded: 1.3,
+      'deep-set': 1.3,
+      prominent: 1,
+    },
     epicanthicFold: { none: 4, slight: 0.3, pronounced: 0.1 },
     pigmentation: { freckled: 2 },
     profile: { orthognathic: 1.5 },
@@ -331,6 +380,7 @@ export const ANCESTRY_MULTIPLIERS: Record<string, Multipliers> = {
     epicanthicFold: { pronounced: 3, slight: 2, none: 0.8 },
     canthalTilt: { positive: 2, neutral: 1.5, negative: 0.6 },
     nasalIndex: { mesorrhine: 2, platyrrhine: 1.5, leptorrhine: 0.6 },
+    noseWidth: { narrow: 0.6, medium: 1.6, wide: 1.1 },
     noseBridgeHeight: { low: 2.5, medium: 1.5, high: 0.5 },
     cheekboneWidth: { wide: 2.5, medium: 1.5, narrow: 0.6 },
     cheekboneProjection: { prominent: 2, moderate: 1.5 },
@@ -374,13 +424,14 @@ export const ANCESTRY_MULTIPLIERS: Record<string, Multipliers> = {
     hairDensity: { thick: 2 },
     irisColor: { 'dark-brown': 4, brown: 3, hazel: 1, green: 0.5, blue: 0.2 },
     nasalIndex: { mesorrhine: 3, leptorrhine: 1.2, platyrrhine: 1 },
+    noseWidth: { narrow: 0.7, medium: 1.4, wide: 1.3 },
     browThickness: { thick: 2, medium: 1.5 },
     lashDensity: { dense: 2 },
   },
   'central-asian': {
     skinTone: { light: 2, medium: 2, tan: 1.5, fair: 0.8 },
     skinUndertone: { warm: 1.8, neutral: 1.5 },
-    hairTexture: { straight: 3, wavy: 1.5, curly: 0.5 },
+    hairTexture: { straight: 3, wavy: 1.5, curly: 0.5, coily: 0.1 },
     hairColor: { black: 4, 'dark-brown': 2.5, brown: 0.6 },
     irisColor: { brown: 3, 'dark-brown': 3, hazel: 1, green: 0.6, blue: 0.4 },
     epicanthicFold: { slight: 2, pronounced: 1, none: 1.5 },

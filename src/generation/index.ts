@@ -75,6 +75,12 @@ export const generateRequestSchema = z.object({
   spec: faceSpecSchema.optional(),
   /** Demographics that steer the casting of unset traits (race/age/health…). */
   demographics: demographicsSchema.optional(),
+  /**
+   * The user's free-text prompt (the simplified /new flow). Appended verbatim to
+   * the composed image prompt so the image model has the user's own wording to
+   * work with, on top of the specified + cast traits.
+   */
+  description: z.string().trim().max(4000).optional(),
   params: generationParamsSchema.default({
     count: 1,
     size: 'portrait',

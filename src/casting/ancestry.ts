@@ -429,7 +429,22 @@ export const ANCESTRY_FOREST: AncestryNode[] = [
           hairColor: { black: 68, 'dark-brown': 28, brown: 4 },
           hairTexture: { straight: 82, wavy: 16, curly: 2 },
           irisColor: { 'dark-brown': 72, brown: 24, hazel: 2, amber: 2 },
-          epicanthicFold: { pronounced: 40, slight: 40, none: 20 },
+          // The single-eyelid "slit" eye phenotype, inherited by every East-Asian
+          // sub-population that doesn't override it (Korean, Japanese, Eastern/
+          // Western Chinese, …): a pronounced epicanthic fold, a monolid (no visible
+          // upper crease), a positive (upward) canthal tilt and an almond/upturned
+          // shape. The Chinese leaves below set their own, even stronger, lidType.
+          epicanthicFold: { pronounced: 58, slight: 34, none: 8 },
+          lidType: { monolid: 56, double: 32, hooded: 7, 'deep-set': 5 },
+          lidCrease: { none: 50, single: 34, double: 14, triple: 2 },
+          canthalTilt: { positive: 54, neutral: 36, negative: 10 },
+          eyeShape: {
+            almond: 48,
+            upturned: 30,
+            round: 11,
+            hooded: 7,
+            downturned: 4,
+          },
         },
         children: [
           {
@@ -455,10 +470,10 @@ export const ANCESTRY_FOREST: AncestryNode[] = [
                     trapezoid: 2,
                   },
                   lidType: {
-                    monolid: 48,
-                    double: 34,
-                    hooded: 10,
-                    'deep-set': 8,
+                    monolid: 64,
+                    double: 22,
+                    hooded: 8,
+                    'deep-set': 6,
                   },
                   noseBridgeHeight: { low: 32, medium: 52, high: 16 },
                 },
@@ -501,10 +516,10 @@ export const ANCESTRY_FOREST: AncestryNode[] = [
                     trapezoid: 3,
                   },
                   lidType: {
-                    double: 46,
-                    monolid: 34,
-                    hooded: 12,
-                    'deep-set': 8,
+                    monolid: 50,
+                    double: 34,
+                    hooded: 10,
+                    'deep-set': 6,
                   },
                   noseWidth: { narrow: 25, medium: 50, wide: 25 },
                   noseBridgeHeight: { low: 46, medium: 40, high: 14 },
@@ -894,6 +909,8 @@ export const ANCESTRY_FOREST: AncestryNode[] = [
                 green: 6,
                 blue: 4,
               },
+              // Turko-Mongol admixture — more monolid than the Persianate Tajiks.
+              lidType: { monolid: 42, double: 40, hooded: 10, 'deep-set': 8 },
             },
           },
           {
@@ -931,6 +948,9 @@ export const ANCESTRY_FOREST: AncestryNode[] = [
       hairTexture: { straight: 24, wavy: 46, curly: 30 },
       irisColor: { brown: 32, 'dark-brown': 30, hazel: 20, green: 10, blue: 8 },
       skinUndertone: { olive: 46, warm: 34, neutral: 20 },
+      // The aquiline/convex bridge is a characteristic Middle-Eastern feature; the
+      // straight neutral default otherwise suppresses it to ~15%.
+      noseBridge: { straight: 44, convex: 34, humped: 13, concave: 9 },
     },
     children: [
       {
@@ -1017,6 +1037,7 @@ export const ANCESTRY_FOREST: AncestryNode[] = [
       hairTexture: { straight: 22, wavy: 40, curly: 38 },
       irisColor: { 'dark-brown': 42, brown: 30, hazel: 18, green: 6, blue: 4 },
       skinUndertone: { olive: 48, warm: 38, neutral: 14 },
+      noseBridge: { straight: 48, convex: 32, humped: 12, concave: 8 },
     },
     children: [
       {
