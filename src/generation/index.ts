@@ -81,6 +81,7 @@ export const generateRequestSchema = z.object({
    * work with, on top of the specified + cast traits.
    */
   description: z.string().trim().max(4000).optional(),
+  imageNote: z.string().trim().max(400).optional(),
   params: generationParamsSchema.default({
     count: 1,
     size: 'portrait',
@@ -90,6 +91,13 @@ export const generateRequestSchema = z.object({
     conformity: 0.7,
   }),
   referenceImage: referenceImageSchema.optional(),
+  /**
+   * Extra reference images (data URLs) beyond the primary `referenceImage` — e.g.
+   * clothing/outfit photos to dress a full-body character sheet. The provider
+   * receives them all as reference media (the ShapeShyft engine auto-detects
+   * data-URL fields, arrays included); the prompt says how to use them.
+   */
+  referenceImages: z.array(referenceImageSchema).max(6).optional(),
   /** Client-supplied key so a retried request never double-charges. */
   idempotencyKey: z.string().trim().min(8).max(200).optional(),
 });
@@ -179,6 +187,20 @@ export interface GeneratedImage {
    * `back-left`). Absent on single-image (`face`) generations.
    */
   role?: string;
+  /**
+   * The character this headshot belongs to, if any (a character owns many
+   * headshots, 1:M). `null`/absent = a loose candidate not yet named into a
+   * character.
+   */
+  characterId?: string | null;
+  /** Editable note for this character-image association. */
+  note?: string | null;
+  /**
+   * The framing this image was rendered at (`headshot` | `bust` |
+   * `three-quarter` | `full-length`); lets a character separate its headshots
+   * from full-body shots.
+   */
+  shot?: string | null;
 }
 
 /** A completed (or failed) generation record, persisted for history. */

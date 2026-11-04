@@ -59,6 +59,18 @@ describe('characters', () => {
     expect(() => updateCharacterRequestSchema.parse({})).toThrow();
   });
 
+  it('allows clearing the name on update ("delete" = unname)', () => {
+    expect(updateCharacterRequestSchema.parse({ name: null }).name).toBeNull();
+  });
+
+  it('accepts a previewImageId on create', () => {
+    const parsed = createCharacterRequestSchema.parse({
+      name: 'Ada',
+      previewImageId: 'img_123',
+    });
+    expect(parsed.previewImageId).toBe('img_123');
+  });
+
   it('builds a valid sample character', () => {
     expect(sampleCharacter().id).toMatch(/^chr_/);
   });

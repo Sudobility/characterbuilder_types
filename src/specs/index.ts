@@ -9,7 +9,13 @@ import { faceSpecSchema } from '../face/index.js';
  */
 export interface Character {
   id: string;
-  name: string;
+  /**
+   * The user-chosen name, or `null` for an unnamed character. A character is
+   * created the moment the user names one of their generated images; clearing
+   * the name ("delete") sets this back to `null`, which hides it from the
+   * Characters list while keeping the row (and its image) intact.
+   */
+  name: string | null;
   role: string | null;
   notes: string | null;
   spec: z.infer<typeof faceSpecSchema>;
@@ -23,6 +29,8 @@ export const createCharacterRequestSchema = z.object({
   role: z.string().trim().max(200).optional(),
   notes: z.string().trim().max(4000).optional(),
   spec: faceSpecSchema.default({}),
+  // The generated image this character is made from (its hero/preview image).
+  previewImageId: z.string().optional(),
 });
 export type CreateCharacterRequest = z.infer<
   typeof createCharacterRequestSchema
@@ -31,7 +39,8 @@ export type CreateCharacterRequest = z.infer<
 /** PATCH: every field optional; omitted fields are left unchanged. */
 export const updateCharacterRequestSchema = z
   .object({
-    name: z.string().trim().min(1).max(120).optional(),
+    // Nullable: passing `null` clears the name ("delete" = unname the character).
+    name: z.string().trim().min(1).max(120).nullable().optional(),
     role: z.string().trim().max(200).nullable().optional(),
     notes: z.string().trim().max(4000).nullable().optional(),
     spec: faceSpecSchema.optional(),
@@ -43,3 +52,7 @@ export const updateCharacterRequestSchema = z
 export type UpdateCharacterRequest = z.infer<
   typeof updateCharacterRequestSchema
 >;
+
+export const updateCharacterImageNoteSchema = z.object({
+  note: z.string().trim().max(400).nullable(),
+});

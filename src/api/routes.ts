@@ -16,6 +16,11 @@ export const ROUTES = {
 
   characters: '/characters',
   character: (id: string) => `/characters/${id}`,
+  /** Every headshot owned by a character (1:M). */
+  characterImages: (id: string) => `/characters/${id}/images`,
+  /** One headshot of a character — DELETE removes the association (keeps the image). */
+  characterImage: (id: string, imageId: string) =>
+    `/characters/${id}/images/${imageId}`,
 
   /** Compose-only: return the prompt a spec would produce, without generating. */
   composePrompt: '/compose',
@@ -38,6 +43,8 @@ export const ROUTES = {
 
   /** Served image bytes / redirect for a stored result image. */
   image: (id: string) => `/images/${id}`,
+  /** Metadata (spec, owning character, role) for one image. */
+  imageMeta: (id: string) => `/images/${id}/meta`,
 
   consumablesBalance: '/consumables/balance',
   consumablesProducts: '/consumables/products',
