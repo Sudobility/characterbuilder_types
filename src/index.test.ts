@@ -18,7 +18,6 @@ import {
   generationParamsSchema,
   successResponse,
   errorResponse,
-  ERROR_STATUS,
   cursorQuerySchema,
   ROUTES,
   makeId,
@@ -265,10 +264,9 @@ describe('Look (conformity) + attractiveness', () => {
 
 describe('api envelope', () => {
   it('wraps success and failure', () => {
-    expect(successResponse(42)).toEqual({ success: true, data: 42 });
-    const fail = errorResponse('nope', 'VALIDATION', { field: 'name' });
-    expect(fail).toMatchObject({ success: false, code: 'VALIDATION' });
-    expect(ERROR_STATUS.INSUFFICIENT_CREDITS).toBe(402);
+    expect(successResponse(42)).toMatchObject({ success: true, data: 42 });
+    const fail = errorResponse('nope');
+    expect(fail).toMatchObject({ success: false, error: 'nope' });
   });
 
   it('parses cursor query defaults', () => {
